@@ -14,13 +14,13 @@ class WPIWM_Media_Handler {
 
     private function __construct() {
         add_filter( 'wp_handle_upload', array( $this, 'on_upload' ) );
-        add_action( 'wp_ajax_wpiwm_apply_single', array( $this, 'ajax_apply_single' ) );
+        add_action( 'wp_ajax_wpiwm_apply_single',  array( $this, 'ajax_apply_single' ) );
         add_action( 'wp_ajax_wpiwm_remove_single', array( $this, 'ajax_remove_single' ) );
-        add_action( 'wp_ajax_wpiwm_batch_apply', array( $this, 'ajax_batch_apply' ) );
-        add_action( 'wp_ajax_wpiwm_batch_remove', array( $this, 'ajax_batch_remove' ) );
-        add_filter( 'manage_media_columns', array( $this, 'add_column' ) );
-        add_action( 'manage_media_custom_column', array( $this, 'render_column' ), 10, 2 );
-        add_filter( 'media_row_actions', array( $this, 'row_actions' ), 10, 2 );
+        add_action( 'wp_ajax_wpiwm_batch_apply',   array( $this, 'ajax_batch_apply' ) );
+        add_action( 'wp_ajax_wpiwm_batch_remove',  array( $this, 'ajax_batch_remove' ) );
+        add_filter( 'manage_media_columns',        array( $this, 'add_column' ) );
+        add_action( 'manage_media_custom_column',  array( $this, 'render_column' ), 10, 2 );
+        add_filter( 'media_row_actions',           array( $this, 'row_actions' ), 10, 2 );
     }
 
     /* ------------------------------------------------------------------ */
@@ -64,13 +64,14 @@ class WPIWM_Media_Handler {
         if ( ! current_user_can( 'upload_files' ) ) {
             wp_send_json_error( array( 'message' => __( '權限不足', 'wp-image-watermark' ) ) );
         }
-        $id     = isset( $_POST['attachment_id'] ) ? (int) $_POST['attachment_id'] : 0;
-        $result = $this->restore_attachment( $id );
-        if ( $result ) {
-            wp_send_json_success( array( 'message' => __( '浮水印已移除（已還原備份）', 'wp-image-watermark' ) ) );
-        } else {
-            wp_send_json_error( array( 'message' => __( '無備份可還原', 'wp-image-watermark' ) ) );
+        $id = isset( $_POST['attachment_id'] ) ? (int) $_POST['attachment_id'] : 0;
+        if ( ! $id ) {
+            wp_send_json_error( array( 'message' => __( '無效的 ID', 'wp-image-watermark' ) ) );
         }
+        // No backup: simply clear the watermarked flag so the UI reflects the change.
+        // The user is responsible for re-uploading the original from their local copy.
+        delete_post_meta( $id, '_wpiwm_watermarked' );
+        wp_send_json_success( array( 'message' => __( '浮水印標記已清除。如需還原圖片，請重新上傳原始檔案。', 'wp-image-watermark' ) ) );
     }
 
     public function ajax_batch_apply() {
@@ -99,26 +100,23 @@ class WPIWM_Media_Handler {
         $ids     = isset( $_POST['ids'] ) ? array_map( 'intval', (array) $_POST['ids'] ) : array();
         $success = 0;
         foreach ( $ids as $id ) {
-            if ( $this->restore_attachment( $id ) ) $success++;
+            delete_post_meta( $id, '_wpiwm_watermarked' );
+            $success++;
         }
         wp_send_json_success( array(
             'success' => $success,
-            'message' => sprintf( __( '已還原 %d 張圖片', 'wp-image-watermark' ), $success ),
+            'message' => sprintf( __( '已清除 %d 張圖片的浮水印標記', 'wp-image-watermark' ), $success ),
         ) );
     }
 
     /* ------------------------------------------------------------------ */
-    /*  Core apply / restore                                               */
+    /*  Core apply                                                         */
     /* ------------------------------------------------------------------ */
 
     public function apply_to_attachment( $attachment_id ) {
         $file = get_attached_file( $attachment_id );
         if ( ! $file || ! file_exists( $file ) ) {
             return false;
-        }
-        $backup = $file . '.wpiwm_backup';
-        if ( ! file_exists( $backup ) ) {
-            copy( $file, $backup );
         }
         $result = WPIWM_Watermark_Engine::apply( $file );
         if ( $result ) {
@@ -129,22 +127,6 @@ class WPIWM_Media_Handler {
             );
         }
         return $result;
-    }
-
-    public function restore_attachment( $attachment_id ) {
-        $file   = get_attached_file( $attachment_id );
-        $backup = $file . '.wpiwm_backup';
-        if ( ! file_exists( $backup ) ) {
-            return false;
-        }
-        copy( $backup, $file );
-        unlink( $backup );
-        delete_post_meta( $attachment_id, '_wpiwm_watermarked' );
-        wp_update_attachment_metadata(
-            $attachment_id,
-            wp_generate_attachment_metadata( $attachment_id, $file )
-        );
-        return true;
     }
 
     /* ------------------------------------------------------------------ */
@@ -168,16 +150,17 @@ class WPIWM_Media_Handler {
 
     public function row_actions( $actions, $post ) {
         if ( $post->post_type !== 'attachment' ) return $actions;
-        $nonce      = wp_create_nonce( 'wpiwm_nonce' );
-        $has_backup = file_exists( get_attached_file( $post->ID ) . '.wpiwm_backup' );
+        $nonce  = wp_create_nonce( 'wpiwm_nonce' );
+        $has_wm = get_post_meta( $post->ID, '_wpiwm_watermarked', true );
+
         $actions['wpiwm_apply'] = sprintf(
             '<a href="#" class="wpiwm-apply" data-id="%d" data-nonce="%s">%s</a>',
             $post->ID, $nonce, esc_html__( '套用浮水印', 'wp-image-watermark' )
         );
-        if ( $has_backup ) {
+        if ( $has_wm ) {
             $actions['wpiwm_remove'] = sprintf(
                 '<a href="#" class="wpiwm-remove" data-id="%d" data-nonce="%s" style="color:#c0392b;">%s</a>',
-                $post->ID, $nonce, esc_html__( '移除浮水印', 'wp-image-watermark' )
+                $post->ID, $nonce, esc_html__( '清除標記', 'wp-image-watermark' )
             );
         }
         return $actions;

@@ -40,10 +40,10 @@ class WPIWM_Admin {
         wp_localize_script( 'wpiwm-admin', 'WPIWM_Admin', array(
             'ajax_url'       => admin_url( 'admin-ajax.php' ),
             'nonce'          => wp_create_nonce( 'wpiwm_nonce' ),
-            'confirm_batch'  => __( '確定要批次套用浮水印到所有已選取的圖片嗎？此操作可透過「移除浮水印」還原。', 'wp-image-watermark' ),
-            'confirm_remove' => __( '確定要移除這張圖片的浮水印嗎？', 'wp-image-watermark' ),
+            'confirm_batch'  => __( '確定要批次套用浮水印到所有已選取的圖片嗎？此操作無法自動還原，請確保本機有原始備份。', 'wp-image-watermark' ),
+            'confirm_remove' => __( '確定要清除這張圖片的浮水印標記嗎？（圖片本身不會變更）', 'wp-image-watermark' ),
             'applying'       => __( '套用中…', 'wp-image-watermark' ),
-            'removing'       => __( '移除中…', 'wp-image-watermark' ),
+            'removing'       => __( '清除中…', 'wp-image-watermark' ),
         ) );
 
         if ( $hook !== 'media_page_wp-image-watermark' ) return;
@@ -253,9 +253,12 @@ class WPIWM_Admin {
             <div class="wpiwm-card">
                 <h2><?php esc_html_e( '批次工具', 'wp-image-watermark' ); ?></h2>
                 <p class="description"><?php esc_html_e( '對媒體庫中現有圖片進行批次操作。請先在上方儲存設定後再執行。', 'wp-image-watermark' ); ?></p>
+                <div class="wpiwm-notice-box" style="background:#fff8e1;border-left:4px solid #f0ad4e;padding:10px 14px;border-radius:4px;margin:12px 0;font-size:13px;">
+                    ⚠️ <?php esc_html_e( '注意：套用後圖片將被直接覆寫，無伺服器端備份。請確保本機已保留原始照片再執行批次套用。', 'wp-image-watermark' ); ?>
+                </div>
                 <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;">
                     <button type="button" class="button button-primary" id="wpiwm-batch-all-apply"><?php esc_html_e( '批次套用浮水印（全部圖片）', 'wp-image-watermark' ); ?></button>
-                    <button type="button" class="button" id="wpiwm-batch-all-remove" style="color:#c0392b;border-color:#c0392b;"><?php esc_html_e( '批次還原浮水印（全部備份）', 'wp-image-watermark' ); ?></button>
+                    <button type="button" class="button" id="wpiwm-batch-all-remove" style="color:#c0392b;border-color:#c0392b;"><?php esc_html_e( '批次清除浮水印標記', 'wp-image-watermark' ); ?></button>
                 </div>
                 <div id="wpiwm-batch-progress" style="margin-top:12px;display:none;">
                     <div class="wpiwm-progress-bar"><div class="wpiwm-progress-fill" id="wpiwm-progress-fill"></div></div>
