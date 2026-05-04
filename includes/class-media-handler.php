@@ -61,7 +61,7 @@ class WPIWM_Media_Handler {
         if ( $result ) {
             wp_send_json_success( array( 'message' => __( '浮水印已套用', 'wp-image-watermark' ) ) );
         } else {
-            wp_send_json_error( array( 'message' => __( '套用失敗，請確認圖片格式', 'wp-image-watermark' ) ) );
+            wp_send_json_error( array( 'message' => __( '套用失敗，請確認圖片格式與浮水印設定是否正確', 'wp-image-watermark' ) ) );
         }
     }
 
@@ -122,14 +122,23 @@ class WPIWM_Media_Handler {
         if ( ! $file || ! file_exists( $file ) ) {
             return false;
         }
+
+        // 套用前先驗證設定是否正確
+        $settings = WPIWM_Settings::get();
+        if ( $settings['watermark_type'] === 'text' && empty( $settings['watermark_text'] ) ) {
+            return false;
+        }
+        if ( $settings['watermark_type'] === 'image' && empty( $settings['watermark_image_id'] ) ) {
+            return false;
+        }
+
         $result = WPIWM_Watermark_Engine::apply( $file );
         if ( $result ) {
             update_post_meta( $attachment_id, '_wpiwm_watermarked', 1 );
-            $metadata = wp_generate_attachment_metadata( $attachment_id, $file );
-            if ( ! is_wp_error( $metadata ) && ! empty( $metadata ) ) {
-                wp_update_attachment_metadata( $attachment_id, $metadata );
-            }
+            // 只清快取，不呼叫 wp_generate_attachment_metadata()
+            // 該函式會重新處理原圖並可能覆寫已套用的浮水印
             clean_attachment_cache( $attachment_id );
+            wp_cache_delete( $attachment_id, 'posts' );
         }
         return $result;
     }

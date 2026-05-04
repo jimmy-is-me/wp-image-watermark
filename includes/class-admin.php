@@ -78,7 +78,6 @@ class WPIWM_Admin {
             'watermark_offset_y'      => max( 0, (int) ( $post['watermark_offset_y'] ?? 10 ) ),
             'watermark_scale'         => max( 1, min( 100, (int) ( $post['watermark_scale'] ?? 20 ) ) ),
             'protect_right_click'     => ! empty( $post['protect_right_click'] ),
-            'protect_drag_drop'       => ! empty( $post['protect_drag_drop'] ),
             'protect_devtools'        => ! empty( $post['protect_devtools'] ),
         );
         WPIWM_Settings::update( $data );
@@ -188,12 +187,11 @@ class WPIWM_Admin {
                                         <?php endif; ?>
                                     </div>
                                     <button type="button" class="button" id="wpiwm-select-image"><?php esc_html_e( '選擇圖片', 'wp-image-watermark' ); ?></button>
-                                    <button type="button" class="button" id="wpiwm-remove-image" <?php echo $opts['watermark_image_id'] ? '' : 'style="display:none"'; ?>><?php esc_html_e( '移除', 'wp-image-watermark' ); ?></button>
-                                    <p class="description"><?php esc_html_e( '建議使用帶透明背景的 PNG 圖片', 'wp-image-watermark' ); ?></p>
+                                    <button type="button" class="button" id="wpiwm-remove-image" <?php echo ! $opts['watermark_image_id'] ? 'style="display:none"' : ''; ?>><?php esc_html_e( '移除', 'wp-image-watermark' ); ?></button>
                                 </td>
                             </tr>
                             <tr>
-                                <th><?php esc_html_e( '相對圖片寬度 (%)', 'wp-image-watermark' ); ?></th>
+                                <th><?php esc_html_e( '圖片大小（佔原圖寬 %）', 'wp-image-watermark' ); ?></th>
                                 <td>
                                     <input type="range" name="watermark_scale" value="<?php echo esc_attr( $opts['watermark_scale'] ); ?>" min="1" max="100" class="wpiwm-range" oninput="this.nextElementSibling.textContent=this.value+'%'">
                                     <span><?php echo esc_html( $opts['watermark_scale'] ); ?>%</span>
@@ -211,27 +209,22 @@ class WPIWM_Admin {
                 </div>
 
                 <div class="wpiwm-card">
-                    <h2><?php esc_html_e( '位置設定', 'wp-image-watermark' ); ?></h2>
-                    <table class="form-table">
+                    <h2><?php esc_html_e( '浮水印位置', 'wp-image-watermark' ); ?></h2>
+                    <div class="wpiwm-position-grid">
+                        <?php foreach ( $positions as $val => $label ) : ?>
+                            <label class="wpiwm-pos-cell <?php echo $opts['watermark_position'] === $val ? 'active' : ''; ?>">
+                                <input type="radio" name="watermark_position" value="<?php echo esc_attr( $val ); ?>" <?php checked( $opts['watermark_position'], $val ); ?>>
+                                <span><?php echo esc_html( $label ); ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <table class="form-table" style="margin-top:12px;">
                         <tr>
-                            <th><?php esc_html_e( '位置', 'wp-image-watermark' ); ?></th>
-                            <td>
-                                <div class="wpiwm-position-grid">
-                                    <?php foreach ( $positions as $val => $label ) : ?>
-                                        <label class="wpiwm-pos-cell <?php echo $opts['watermark_position'] === $val ? 'active' : ''; ?>">
-                                            <input type="radio" name="watermark_position" value="<?php echo esc_attr( $val ); ?>" <?php checked( $opts['watermark_position'], $val ); ?>>
-                                            <?php echo esc_html( $label ); ?>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><?php esc_html_e( 'X 偏移 (px)', 'wp-image-watermark' ); ?></th>
+                            <th><?php esc_html_e( 'X 位移 (px)', 'wp-image-watermark' ); ?></th>
                             <td><input type="number" name="watermark_offset_x" value="<?php echo esc_attr( $opts['watermark_offset_x'] ); ?>" min="0" class="small-text"></td>
                         </tr>
                         <tr>
-                            <th><?php esc_html_e( 'Y 偏移 (px)', 'wp-image-watermark' ); ?></th>
+                            <th><?php esc_html_e( 'Y 位移 (px)', 'wp-image-watermark' ); ?></th>
                             <td><input type="number" name="watermark_offset_y" value="<?php echo esc_attr( $opts['watermark_offset_y'] ); ?>" min="0" class="small-text"></td>
                         </tr>
                     </table>
@@ -244,10 +237,6 @@ class WPIWM_Admin {
                         <tr>
                             <th><?php esc_html_e( '停用右鍵選單', 'wp-image-watermark' ); ?></th>
                             <td><label><input type="checkbox" name="protect_right_click" value="1" <?php checked( $opts['protect_right_click'] ); ?>> <?php esc_html_e( '在圖片上停用右鍵選單', 'wp-image-watermark' ); ?></label></td>
-                        </tr>
-                        <tr>
-                            <th><?php esc_html_e( '停用拖放', 'wp-image-watermark' ); ?></th>
-                            <td><label><input type="checkbox" name="protect_drag_drop" value="1" <?php checked( $opts['protect_drag_drop'] ); ?>> <?php esc_html_e( '防止拖曳圖片', 'wp-image-watermark' ); ?></label></td>
                         </tr>
                         <tr>
                             <th><?php esc_html_e( '開發者工具偵測', 'wp-image-watermark' ); ?></th>
