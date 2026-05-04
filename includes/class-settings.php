@@ -21,14 +21,8 @@ class WPIWM_Settings {
     public static function defaults() {
         return array(
             'auto_watermark'          => 0,
-            'watermark_type'          => 'text',
             'watermark_image_id'      => 0,
             'watermark_image_opacity' => 80,
-            'watermark_text'          => '',
-            'watermark_font_size'     => 36,
-            'watermark_font_color'    => '#ffffff',
-            'watermark_text_opacity'  => 70,
-            'watermark_font_family'   => 'arial',
             'watermark_position'      => 'bottom-right',
             'watermark_offset_x'      => 10,
             'watermark_offset_y'      => 10,

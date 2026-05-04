@@ -3,48 +3,6 @@ defined( 'ABSPATH' ) || exit;
 
 class WPIWM_Watermark_Engine {
 
-    /**
-     * Find a usable TTF font file.
-     * Priority: plugin bundled → system CJK fonts (Linux/macOS) → false
-     */
-    private static function find_font() {
-        // 1. Plugin bundled font
-        $bundled = WPIWM_PLUGIN_DIR . 'assets/fonts/NotoSansCJK-Regular.ttf';
-        if ( file_exists( $bundled ) && filesize( $bundled ) > 1024 ) {
-            return $bundled;
-        }
-
-        // 2. System fonts with CJK support (Linux servers)
-        $system_fonts = array(
-            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-            '/usr/share/fonts/noto-cjk/NotoSansCJKtc-Regular.otf',
-            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
-            '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
-            '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
-            '/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc',
-            '/usr/share/fonts/wqy-microhei/wqy-microhei.ttc',
-            '/usr/share/fonts/truetype/arphic/uming.ttc',
-            '/usr/share/fonts/truetype/arphic/ukai.ttc',
-            // macOS
-            '/System/Library/Fonts/PingFang.ttc',
-            '/Library/Fonts/Arial Unicode.ttf',
-            // Windows (Plesk/cPanel on Windows)
-            'C:/Windows/Fonts/msjh.ttc',
-            'C:/Windows/Fonts/mingliu.ttc',
-        );
-        foreach ( $system_fonts as $f ) {
-            if ( file_exists( $f ) ) return $f;
-        }
-
-        // 3. Try wp-content/fonts
-        $wpcontent_font = WP_CONTENT_DIR . '/fonts/NotoSansCJK-Regular.ttf';
-        if ( file_exists( $wpcontent_font ) && filesize( $wpcontent_font ) > 1024 ) {
-            return $wpcontent_font;
-        }
-
-        return false;
-    }
-
     public static function apply( $file_path, $opts = array() ) {
         if ( ! file_exists( $file_path ) ) {
             error_log( 'WPIWM Engine: file not found – ' . $file_path );
@@ -63,19 +21,12 @@ class WPIWM_Watermark_Engine {
             return false;
         }
 
-        if ( $settings['watermark_type'] === 'text' ) {
-            if ( '' === trim( (string) $settings['watermark_text'] ) ) {
-                error_log( 'WPIWM Engine: watermark_text is empty' );
-                return false;
-            }
-        } else {
-            if ( empty( $settings['watermark_image_id'] ) ) {
-                error_log( 'WPIWM Engine: watermark_image_id is 0' );
-                return false;
-            }
+        if ( empty( $settings['watermark_image_id'] ) ) {
+            error_log( 'WPIWM Engine: watermark_image_id not set' );
+            return false;
         }
 
-        error_log( sprintf( 'WPIWM Engine: start type=%s file=%s', $settings['watermark_type'], basename( $file_path ) ) );
+        error_log( 'WPIWM Engine: start file=' . basename( $file_path ) );
 
         if ( extension_loaded( 'gd' ) && function_exists( 'imagecreatetruecolor' ) ) {
             $ok = self::via_gd( $file_path, $ext, $settings );
@@ -107,9 +58,7 @@ class WPIWM_Watermark_Engine {
         imagealphablending( $canvas, true );
         imagesavealpha( $canvas, true );
 
-        $ok = ( $settings['watermark_type'] === 'image' )
-            ? self::gd_stamp_image( $canvas, $w, $h, $settings )
-            : self::gd_stamp_text( $canvas, $w, $h, $settings );
+        $ok = self::gd_stamp_image( $canvas, $w, $h, $settings );
 
         if ( $ok ) {
             $saved = self::gd_save( $canvas, $file_path, $ext );
@@ -132,9 +81,6 @@ class WPIWM_Watermark_Engine {
         return false;
     }
 
-    /**
-     * Atomic save: write to .wpiwm_tmp then rename to avoid partial-write corruption.
-     */
     private static function gd_save( $img, $path, $ext ) {
         $tmp = $path . '.wpiwm_tmp';
         $ok  = false;
@@ -157,7 +103,7 @@ class WPIWM_Watermark_Engine {
     private static function gd_stamp_image( $canvas, $src_w, $src_h, $settings ) {
         $wm_path = get_attached_file( (int) $settings['watermark_image_id'] );
         if ( ! $wm_path || ! file_exists( $wm_path ) ) {
-            error_log( 'WPIWM GD image: watermark file not found' );
+            error_log( 'WPIWM GD: watermark image file not found' );
             return false;
         }
         $wm_ext = strtolower( pathinfo( $wm_path, PATHINFO_EXTENSION ) );
@@ -188,62 +134,6 @@ class WPIWM_Watermark_Engine {
         return true;
     }
 
-    private static function gd_stamp_text( $canvas, $src_w, $src_h, $settings ) {
-        $text = trim( (string) $settings['watermark_text'] );
-        if ( '' === $text ) return false;
-
-        $font_size = max( 8, (int) $settings['watermark_font_size'] );
-        $hex = ltrim( (string) $settings['watermark_font_color'], '#' );
-        if ( strlen( $hex ) !== 6 ) $hex = 'ffffff';
-        $r       = hexdec( substr( $hex, 0, 2 ) );
-        $g       = hexdec( substr( $hex, 2, 2 ) );
-        $b       = hexdec( substr( $hex, 4, 2 ) );
-        $opacity = max( 0, min( 100, (int) $settings['watermark_text_opacity'] ) );
-        // GD alpha: 0=opaque, 127=transparent
-        $alpha_gd = (int) round( 127 - ( $opacity / 100.0 * 127 ) );
-        $color    = imagecolorallocatealpha( $canvas, $r, $g, $b, $alpha_gd );
-
-        $font_file = self::find_font();
-        $use_ttf   = $font_file && function_exists( 'imagettftext' ) && function_exists( 'imagettfbbox' );
-
-        error_log( sprintf(
-            'WPIWM GD text: "%s" size=%d #%s opacity=%d font=%s',
-            $text, $font_size, $hex, $opacity,
-            $use_ttf ? $font_file : 'GD-builtin(ASCII-only)'
-        ) );
-
-        if ( $use_ttf ) {
-            $bbox   = imagettfbbox( $font_size, 0, $font_file, $text );
-            $text_w = abs( $bbox[4] - $bbox[6] );
-            $text_h = abs( $bbox[7] - $bbox[1] );
-            list( $x, $y ) = self::position_xy( $src_w, $src_h, $text_w, $text_h, $settings );
-            // imagettftext baseline is bottom-left; shift y down by text height
-            imagettftext( $canvas, $font_size, 0, max( 0, $x ), max( $text_h, $y + $text_h ), $color, $font_file, $text );
-        } else {
-            // Fallback: GD built-in font (ASCII only — non-ASCII chars will be garbled)
-            // Show a warning in admin notices if text contains non-ASCII
-            if ( preg_match( '/[^\x00-\x7F]/', $text ) ) {
-                error_log( 'WPIWM GD text: WARNING – text contains non-ASCII characters but no CJK font is available. Please install a font (see plugin instructions).' );
-                // Draw a visible placeholder rectangle so the user knows watermark ran but font is missing
-                $box_color = imagecolorallocatealpha( $canvas, $r, $g, $b, $alpha_gd );
-                $bw = min( $src_w, max( 120, $font_size * mb_strlen( $text ) ) );
-                $bh = $font_size + 8;
-                list( $x, $y ) = self::position_xy( $src_w, $src_h, $bw, $bh, $settings );
-                imagefilledrectangle( $canvas, $x, $y, $x + $bw, $y + $bh, $box_color );
-                // Write ASCII transliteration hint
-                imagestring( $canvas, 5, $x + 4, $y + 4, '[WM-no-CJK-font]', $color );
-            } else {
-                $gd_font = 5;
-                $text_w  = imagefontwidth( $gd_font ) * strlen( $text );
-                $text_h  = imagefontheight( $gd_font );
-                list( $x, $y ) = self::position_xy( $src_w, $src_h, $text_w, $text_h, $settings );
-                imagestring( $canvas, $gd_font, max( 0, $x ), max( 0, $y ), $text, $color );
-                imagestring( $canvas, $gd_font, max( 0, $x ) + 1, max( 0, $y ), $text, $color );
-            }
-        }
-        return true;
-    }
-
     private static function gd_merge_alpha( $dst, $src, $dst_x, $dst_y, $src_x, $src_y, $src_w, $src_h, $pct ) {
         if ( $pct <= 0 )   return;
         if ( $pct >= 100 ) { imagecopy( $dst, $src, $dst_x, $dst_y, $src_x, $src_y, $src_w, $src_h ); return; }
@@ -266,9 +156,7 @@ class WPIWM_Watermark_Engine {
             $img->setImageCompressionQuality( 90 );
             $src_w = $img->getImageWidth();
             $src_h = $img->getImageHeight();
-            $ok = ( $settings['watermark_type'] === 'image' )
-                ? self::imagick_stamp_image( $img, $src_w, $src_h, $settings )
-                : self::imagick_stamp_text( $img, $src_w, $src_h, $settings );
+            $ok = self::imagick_stamp_image( $img, $src_w, $src_h, $settings );
             if ( $ok ) $img->writeImage( $file_path );
             $img->destroy();
             return $ok;
@@ -301,28 +189,6 @@ class WPIWM_Watermark_Engine {
         }
     }
 
-    private static function imagick_stamp_text( $img, $src_w, $src_h, $settings ) {
-        $text = trim( (string) $settings['watermark_text'] );
-        if ( '' === $text ) return false;
-        try {
-            $draw = new ImagickDraw();
-            $draw->setFontSize( max( 8, (int) $settings['watermark_font_size'] ) );
-            $draw->setFillColor( new ImagickPixel( '#' . ltrim( (string) $settings['watermark_font_color'], '#' ) ) );
-            $draw->setFillOpacity( max(0,min(100,(int)$settings['watermark_text_opacity'])) / 100 );
-            $font_file = self::find_font();
-            if ( $font_file ) {
-                $draw->setFont( $font_file );
-            }
-            $m = $img->queryFontMetrics( $draw, $text );
-            list( $x, $y ) = self::position_xy( $src_w, $src_h, (int)$m['textWidth'], (int)$m['textHeight'], $settings );
-            $img->annotateImage( $draw, $x, $y + (int)$m['textHeight'], 0, $text );
-            return true;
-        } catch ( Exception $e ) {
-            error_log( 'WPIWM Imagick stamp_text: ' . $e->getMessage() );
-            return false;
-        }
-    }
-
     /* ----------------------------------------------------------------
      * Shared helpers
      * ---------------------------------------------------------------- */
@@ -332,16 +198,16 @@ class WPIWM_Watermark_Engine {
         $ox  = max( 0, (int) $settings['watermark_offset_x'] );
         $oy  = max( 0, (int) $settings['watermark_offset_y'] );
         switch ( $pos ) {
-            case 'top-left':      return array( $ox,              $oy );
-            case 'top-center':    return array( (int)(($src_w-$el_w)/2), $oy );
-            case 'top-right':     return array( $src_w-$el_w-$ox, $oy );
-            case 'middle-left':   return array( $ox,              (int)(($src_h-$el_h)/2) );
-            case 'center':        return array( (int)(($src_w-$el_w)/2), (int)(($src_h-$el_h)/2) );
-            case 'middle-right':  return array( $src_w-$el_w-$ox, (int)(($src_h-$el_h)/2) );
-            case 'bottom-left':   return array( $ox,              $src_h-$el_h-$oy );
-            case 'bottom-center': return array( (int)(($src_w-$el_w)/2), $src_h-$el_h-$oy );
+            case 'top-left':      return array( $ox,                           $oy );
+            case 'top-center':    return array( (int)(($src_w-$el_w)/2),       $oy );
+            case 'top-right':     return array( $src_w-$el_w-$ox,              $oy );
+            case 'middle-left':   return array( $ox,                           (int)(($src_h-$el_h)/2) );
+            case 'center':        return array( (int)(($src_w-$el_w)/2),       (int)(($src_h-$el_h)/2) );
+            case 'middle-right':  return array( $src_w-$el_w-$ox,              (int)(($src_h-$el_h)/2) );
+            case 'bottom-left':   return array( $ox,                           $src_h-$el_h-$oy );
+            case 'bottom-center': return array( (int)(($src_w-$el_w)/2),       $src_h-$el_h-$oy );
             case 'bottom-right':
-            default:              return array( $src_w-$el_w-$ox, $src_h-$el_h-$oy );
+            default:              return array( $src_w-$el_w-$ox,              $src_h-$el_h-$oy );
         }
     }
 }
