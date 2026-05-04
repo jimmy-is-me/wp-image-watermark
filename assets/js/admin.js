@@ -1,28 +1,123 @@
 (function ($) {
     'use strict';
 
-    // ── Type tabs toggle ──
+    var mediaFrame;
+    var previewWatermarkImage = null;
+    var previewCanvas = document.getElementById('wpiwm-preview-canvas');
+    var previewCtx = previewCanvas ? previewCanvas.getContext('2d') : null;
+
+    function getPositionCoords(position, baseW, baseH, elementW, elementH, offsetX, offsetY) {
+        switch (position) {
+            case 'top-left':
+                return { x: offsetX, y: offsetY };
+            case 'top-center':
+                return { x: (baseW - elementW) / 2, y: offsetY };
+            case 'top-right':
+                return { x: baseW - elementW - offsetX, y: offsetY };
+            case 'middle-left':
+                return { x: offsetX, y: (baseH - elementH) / 2 };
+            case 'center':
+                return { x: (baseW - elementW) / 2, y: (baseH - elementH) / 2 };
+            case 'middle-right':
+                return { x: baseW - elementW - offsetX, y: (baseH - elementH) / 2 };
+            case 'bottom-left':
+                return { x: offsetX, y: baseH - elementH - offsetY };
+            case 'bottom-center':
+                return { x: (baseW - elementW) / 2, y: baseH - elementH - offsetY };
+            case 'bottom-right':
+            default:
+                return { x: baseW - elementW - offsetX, y: baseH - elementH - offsetY };
+        }
+    }
+
+    function drawPreviewBackground() {
+        if (!previewCtx || !previewCanvas) return;
+        var gradient = previewCtx.createLinearGradient(0, 0, previewCanvas.width, previewCanvas.height);
+        gradient.addColorStop(0, '#f3f4f6');
+        gradient.addColorStop(1, '#d1d5db');
+        previewCtx.fillStyle = gradient;
+        previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+        previewCtx.fillStyle = 'rgba(255,255,255,0.35)';
+        previewCtx.fillRect(48, 48, previewCanvas.width - 96, previewCanvas.height - 96);
+
+        previewCtx.fillStyle = '#6b7280';
+        previewCtx.font = '600 28px sans-serif';
+        previewCtx.fillText('Preview Image', 72, 100);
+        previewCtx.font = '400 20px sans-serif';
+        previewCtx.fillText('這裡模擬實際圖片上套用浮水印後的顯示效果', 72, 138);
+    }
+
+    function renderPreview() {
+        if (!previewCtx || !previewCanvas) return;
+
+        drawPreviewBackground();
+
+        var type = $('input[name="watermark_type"]:checked').val();
+        var position = $('input[name="watermark_position"]:checked').val() || 'bottom-right';
+        var offsetX = parseInt($('input[name="watermark_offset_x"]').val(), 10) || 0;
+        var offsetY = parseInt($('input[name="watermark_offset_y"]').val(), 10) || 0;
+
+        if (type === 'image' && previewWatermarkImage && previewWatermarkImage.complete) {
+            var scale = parseInt($('input[name="watermark_scale"]').val(), 10) || 20;
+            var opacity = (parseInt($('input[name="watermark_image_opacity"]').val(), 10) || 80) / 100;
+            var drawW = Math.max(24, previewCanvas.width * scale / 100);
+            var ratio = previewWatermarkImage.naturalWidth ? (previewWatermarkImage.naturalHeight / previewWatermarkImage.naturalWidth) : 1;
+            var drawH = drawW * ratio;
+            var pos = getPositionCoords(position, previewCanvas.width, previewCanvas.height, drawW, drawH, offsetX, offsetY);
+            previewCtx.save();
+            previewCtx.globalAlpha = opacity;
+            previewCtx.drawImage(previewWatermarkImage, pos.x, pos.y, drawW, drawH);
+            previewCtx.restore();
+            return;
+        }
+
+        var text = $('input[name="watermark_text"]').val() || WPIWM_Admin.preview_sample_text;
+        var fontSize = parseInt($('input[name="watermark_font_size"]').val(), 10) || 36;
+        var color = $('input[name="watermark_font_color"]').val() || '#ffffff';
+        var opacityText = (parseInt($('input[name="watermark_text_opacity"]').val(), 10) || 70) / 100;
+        fontSize = Math.max(12, Math.round(fontSize * 1.4));
+
+        previewCtx.save();
+        previewCtx.font = '700 ' + fontSize + 'px sans-serif';
+        var metrics = previewCtx.measureText(text);
+        var textW = metrics.width;
+        var textH = fontSize;
+        var posText = getPositionCoords(position, previewCanvas.width, previewCanvas.height, textW, textH, offsetX, offsetY);
+        previewCtx.globalAlpha = opacityText;
+        previewCtx.fillStyle = color;
+        previewCtx.shadowColor = 'rgba(0,0,0,0.22)';
+        previewCtx.shadowBlur = 8;
+        previewCtx.fillText(text, posText.x, posText.y + textH);
+        previewCtx.restore();
+    }
+
+    function syncRangeLabels() {
+        $('.wpiwm-range').each(function () {
+            var $range = $(this);
+            $range.next('span').text($range.val() + '%');
+        });
+    }
+
     $('input[name="watermark_type"]').on('change', function () {
         var val = $(this).val();
         $('.wpiwm-type-settings').hide();
         $('#wpiwm-' + val + '-settings').show();
         $('.wpiwm-type-tab').removeClass('active');
         $(this).closest('.wpiwm-type-tab').addClass('active');
+        renderPreview();
     });
 
-    // ── Position grid ──
     $('input[name="watermark_position"]').on('change', function () {
         $('.wpiwm-pos-cell').removeClass('active');
         $(this).closest('.wpiwm-pos-cell').addClass('active');
+        renderPreview();
     });
 
-    // ── Auto watermark toggle card ──
     $('#auto_watermark').on('change', function () {
         $('#wpiwm-auto-card').toggleClass('is-active', this.checked);
     });
 
-    // ── Media picker ──
-    var mediaFrame;
     $('#wpiwm-select-image').on('click', function (e) {
         e.preventDefault();
         if (mediaFrame) { mediaFrame.open(); return; }
@@ -35,11 +130,14 @@
         mediaFrame.on('select', function () {
             var attachment = mediaFrame.state().get('selection').first().toJSON();
             $('#watermark_image_id').val(attachment.id);
-            var preview = attachment.sizes && attachment.sizes.thumbnail
-                ? attachment.sizes.thumbnail.url
-                : attachment.url;
+            var preview = attachment.sizes && attachment.sizes.thumbnail ? attachment.sizes.thumbnail.url : attachment.url;
             $('#wpiwm-image-preview').html('<img src="' + preview + '" style="max-width:120px;max-height:80px;border:1px solid #ddd;border-radius:4px;">');
             $('#wpiwm-remove-image').show();
+
+            previewWatermarkImage = new Image();
+            previewWatermarkImage.crossOrigin = 'anonymous';
+            previewWatermarkImage.onload = renderPreview;
+            previewWatermarkImage.src = attachment.url;
         });
         mediaFrame.open();
     });
@@ -47,10 +145,16 @@
     $('#wpiwm-remove-image').on('click', function () {
         $('#watermark_image_id').val('');
         $('#wpiwm-image-preview').html('');
+        previewWatermarkImage = null;
         $(this).hide();
+        renderPreview();
     });
 
-    // ── Single row action: apply ──
+    $(document).on('input change', 'input[name="watermark_text"], input[name="watermark_font_size"], input[name="watermark_font_color"], input[name="watermark_text_opacity"], input[name="watermark_scale"], input[name="watermark_image_opacity"], input[name="watermark_offset_x"], input[name="watermark_offset_y"]', function () {
+        syncRangeLabels();
+        renderPreview();
+    });
+
     $(document).on('click', '.wpiwm-apply', function (e) {
         e.preventDefault();
         var $link = $(this);
@@ -72,7 +176,6 @@
         });
     });
 
-    // ── Single row action: remove ──
     $(document).on('click', '.wpiwm-remove', function (e) {
         e.preventDefault();
         if (!confirm(WPIWM_Admin.confirm_remove)) return;
@@ -95,13 +198,11 @@
         });
     });
 
-    // ── Batch apply all ──
     $('#wpiwm-batch-all-apply').on('click', function () {
         if (!confirm(WPIWM_Admin.confirm_batch)) return;
         runBatch('apply');
     });
 
-    // ── Batch remove all ──
     $('#wpiwm-batch-all-remove').on('click', function () {
         if (!confirm('確定要還原所有有備份的圖片嗎？')) return;
         runBatch('remove');
@@ -149,5 +250,16 @@
             processChunk(0);
         });
     }
+
+    var existingPreviewImg = $('#wpiwm-image-preview img').attr('src');
+    if (existingPreviewImg) {
+        previewWatermarkImage = new Image();
+        previewWatermarkImage.crossOrigin = 'anonymous';
+        previewWatermarkImage.onload = renderPreview;
+        previewWatermarkImage.src = existingPreviewImg;
+    }
+
+    syncRangeLabels();
+    renderPreview();
 
 })(jQuery);

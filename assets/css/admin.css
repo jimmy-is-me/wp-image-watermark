@@ -1,110 +1,34 @@
-/* WP Image Watermark — Admin Styles */
-.wpiwm-wrap { max-width: 900px; }
-.wpiwm-wrap h1 { margin-bottom: 20px; }
-
-.wpiwm-card {
-    background: #fff;
-    border: 1px solid #e0e0e0;
+.wpiwm-preview-box {
+    margin-top: 20px;
+    border: 1px solid #dcdcde;
     border-radius: 8px;
-    padding: 24px 28px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.06);
-}
-.wpiwm-card h2 {
-    margin: 0 0 16px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1e1e1e;
-    border-bottom: 1px solid #f0f0f0;
-    padding-bottom: 10px;
-}
-
-/* ── Toggle card ── */
-.wpiwm-toggle-card { border-left: 4px solid #ccc; transition: border-color .2s; }
-.wpiwm-toggle-card.is-active { border-left-color: #2a9d8f; }
-.wpiwm-toggle-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.wpiwm-toggle-header h2 { border: none; padding-bottom: 0; margin-bottom: 6px; }
-.wpiwm-toggle-header .description { margin: 0; }
-
-/* Toggle switch */
-.wpiwm-switch { position: relative; display: inline-block; width: 52px; height: 28px; flex-shrink: 0; }
-.wpiwm-switch input { opacity: 0; width: 0; height: 0; }
-.wpiwm-slider {
-    position: absolute; cursor: pointer; inset: 0;
-    background: #ccc; border-radius: 28px;
-    transition: background .2s;
-}
-.wpiwm-slider:before {
-    content: '';
-    position: absolute;
-    width: 22px; height: 22px;
-    left: 3px; bottom: 3px;
     background: #fff;
-    border-radius: 50%;
-    transition: transform .2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,.2);
-}
-.wpiwm-switch input:checked + .wpiwm-slider { background: #2a9d8f; }
-.wpiwm-switch input:checked + .wpiwm-slider:before { transform: translateX(24px); }
-
-/* ── Type tabs ── */
-.wpiwm-type-tabs { display: flex; gap: 12px; margin-bottom: 20px; }
-.wpiwm-type-tab {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 20px;
-    border: 2px solid #e0e0e0;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    color: #555;
-    transition: border-color .15s, color .15s, background .15s;
-}
-.wpiwm-type-tab input { display: none; }
-.wpiwm-type-tab:hover { border-color: #2a9d8f; color: #2a9d8f; }
-.wpiwm-type-tab.active { border-color: #2a9d8f; color: #2a9d8f; background: #f0faf9; }
-
-/* ── Position grid ── */
-.wpiwm-position-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 72px);
-    gap: 6px;
-}
-.wpiwm-pos-cell {
-    display: flex; align-items: center; justify-content: center;
-    height: 44px;
-    border: 2px solid #e0e0e0;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 12px;
-    color: #555;
-    text-align: center;
-    transition: border-color .15s, background .15s, color .15s;
-}
-.wpiwm-pos-cell input { display: none; }
-.wpiwm-pos-cell:hover { border-color: #2a9d8f; color: #2a9d8f; }
-.wpiwm-pos-cell.active { border-color: #2a9d8f; background: #2a9d8f; color: #fff; }
-
-/* ── Range input ── */
-.wpiwm-range { width: 220px; vertical-align: middle; accent-color: #2a9d8f; }
-.wpiwm-range + span { margin-left: 8px; font-weight: 600; color: #333; min-width: 40px; display: inline-block; }
-
-/* ── Progress bar ── */
-.wpiwm-progress-bar {
-    width: 100%; height: 8px;
-    background: #f0f0f0;
-    border-radius: 99px;
     overflow: hidden;
-    margin-bottom: 8px;
-}
-.wpiwm-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #2a9d8f, #3ec9bb);
-    border-radius: 99px;
-    transition: width .3s ease;
-    width: 0%;
 }
 
-/* form-table tweaks */
-.wpiwm-wrap .form-table th { width: 180px; padding: 12px 10px 12px 0; }
-.wpiwm-wrap .form-table td { padding: 10px 0; }
+.wpiwm-preview-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #eee;
+    background: #fafafa;
+}
+
+.wpiwm-preview-header h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+}
+
+.wpiwm-preview-stage {
+    padding: 16px;
+    background: #f6f7f7;
+}
+
+#wpiwm-preview-canvas {
+    display: block;
+    width: 100%;
+    max-width: 720px;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border: 1px solid #ccd0d4;
+    border-radius: 6px;
+    background: #e5e7eb;
+}

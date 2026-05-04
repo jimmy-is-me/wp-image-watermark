@@ -38,12 +38,13 @@ class WPIWM_Admin {
             true
         );
         wp_localize_script( 'wpiwm-admin', 'WPIWM_Admin', array(
-            'ajax_url'       => admin_url( 'admin-ajax.php' ),
-            'nonce'          => wp_create_nonce( 'wpiwm_nonce' ),
-            'confirm_batch'  => __( '確定要批次套用浮水印到所有已選取的圖片嗎？此操作無法自動還原，請確保本機有原始備份。', 'wp-image-watermark' ),
-            'confirm_remove' => __( '確定要清除這張圖片的浮水印標記嗎？（圖片本身不會變更）', 'wp-image-watermark' ),
-            'applying'       => __( '套用中…', 'wp-image-watermark' ),
-            'removing'       => __( '清除中…', 'wp-image-watermark' ),
+            'ajax_url'            => admin_url( 'admin-ajax.php' ),
+            'nonce'               => wp_create_nonce( 'wpiwm_nonce' ),
+            'confirm_batch'       => __( '確定要批次套用浮水印到所有已選取的圖片嗎？此操作無法自動還原，請確保本機有原始備份。', 'wp-image-watermark' ),
+            'confirm_remove'      => __( '確定要清除這張圖片的浮水印標記嗎？（圖片本身不會變更）', 'wp-image-watermark' ),
+            'applying'            => __( '套用中…', 'wp-image-watermark' ),
+            'removing'            => __( '清除中…', 'wp-image-watermark' ),
+            'preview_sample_text' => __( '預覽文字', 'wp-image-watermark' ),
         ) );
 
         if ( $hook !== 'media_page_wp-image-watermark' ) return;
@@ -141,6 +142,16 @@ class WPIWM_Admin {
                         </label>
                     </div>
 
+                    <div class="wpiwm-preview-box">
+                        <div class="wpiwm-preview-header">
+                            <h3><?php esc_html_e( '效果預覽', 'wp-image-watermark' ); ?></h3>
+                            <p class="description"><?php esc_html_e( '此預覽僅供設定位置、大小與透明度參考。', 'wp-image-watermark' ); ?></p>
+                        </div>
+                        <div class="wpiwm-preview-stage">
+                            <canvas id="wpiwm-preview-canvas" width="960" height="540"></canvas>
+                        </div>
+                    </div>
+
                     <div id="wpiwm-text-settings" class="wpiwm-type-settings" <?php echo $opts['watermark_type'] !== 'text' ? 'style="display:none"' : ''; ?>>
                         <table class="form-table">
                             <tr>
@@ -217,11 +228,11 @@ class WPIWM_Admin {
                         </tr>
                         <tr>
                             <th><?php esc_html_e( 'X 偏移 (px)', 'wp-image-watermark' ); ?></th>
-                            <td><input type="number" name="watermark_offset_x" value="<?php echo esc_attr( $opts['watermark_offset_x'] ); ?>" min="0" class="small-text"> px</td>
+                            <td><input type="number" name="watermark_offset_x" value="<?php echo esc_attr( $opts['watermark_offset_x'] ); ?>" min="0" class="small-text"></td>
                         </tr>
                         <tr>
                             <th><?php esc_html_e( 'Y 偏移 (px)', 'wp-image-watermark' ); ?></th>
-                            <td><input type="number" name="watermark_offset_y" value="<?php echo esc_attr( $opts['watermark_offset_y'] ); ?>" min="0" class="small-text"> px</td>
+                            <td><input type="number" name="watermark_offset_y" value="<?php echo esc_attr( $opts['watermark_offset_y'] ); ?>" min="0" class="small-text"></td>
                         </tr>
                     </table>
                 </div>
@@ -236,7 +247,7 @@ class WPIWM_Admin {
                         </tr>
                         <tr>
                             <th><?php esc_html_e( '停用拖放', 'wp-image-watermark' ); ?></th>
-                            <td><label><input type="checkbox" name="protect_drag_drop" value="1" <?php checked( $opts['protect_drag_drop'] ); ?>> <?php esc_html_e( '防止拖放圖片', 'wp-image-watermark' ); ?></label></td>
+                            <td><label><input type="checkbox" name="protect_drag_drop" value="1" <?php checked( $opts['protect_drag_drop'] ); ?>> <?php esc_html_e( '防止拖曳圖片', 'wp-image-watermark' ); ?></label></td>
                         </tr>
                         <tr>
                             <th><?php esc_html_e( '開發者工具偵測', 'wp-image-watermark' ); ?></th>

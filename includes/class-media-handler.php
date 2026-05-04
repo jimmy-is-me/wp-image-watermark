@@ -13,7 +13,7 @@ class WPIWM_Media_Handler {
     }
 
     private function __construct() {
-        add_filter( 'wp_handle_upload', array( $this, 'on_upload' ) );
+        add_action( 'add_attachment', array( $this, 'maybe_auto_watermark_attachment' ) );
         add_action( 'wp_ajax_wpiwm_apply_single',  array( $this, 'ajax_apply_single' ) );
         add_action( 'wp_ajax_wpiwm_remove_single', array( $this, 'ajax_remove_single' ) );
         add_action( 'wp_ajax_wpiwm_batch_apply',   array( $this, 'ajax_batch_apply' ) );
@@ -27,15 +27,21 @@ class WPIWM_Media_Handler {
     /*  Auto watermark on upload                                           */
     /* ------------------------------------------------------------------ */
 
-    public function on_upload( $upload ) {
+    public function maybe_auto_watermark_attachment( $attachment_id ) {
         if ( ! WPIWM_Settings::get( 'auto_watermark' ) ) {
-            return $upload;
+            return;
         }
-        $file = $upload['file'] ?? '';
-        if ( $file ) {
-            WPIWM_Watermark_Engine::apply( $file );
+
+        if ( 'attachment' !== get_post_type( $attachment_id ) ) {
+            return;
         }
-        return $upload;
+
+        $mime_type = get_post_mime_type( $attachment_id );
+        if ( 0 !== strpos( (string) $mime_type, 'image/' ) ) {
+            return;
+        }
+
+        $this->apply_to_attachment( $attachment_id );
     }
 
     /* ------------------------------------------------------------------ */
@@ -68,8 +74,6 @@ class WPIWM_Media_Handler {
         if ( ! $id ) {
             wp_send_json_error( array( 'message' => __( '無效的 ID', 'wp-image-watermark' ) ) );
         }
-        // No backup: simply clear the watermarked flag so the UI reflects the change.
-        // The user is responsible for re-uploading the original from their local copy.
         delete_post_meta( $id, '_wpiwm_watermarked' );
         wp_send_json_success( array( 'message' => __( '浮水印標記已清除。如需還原圖片，請重新上傳原始檔案。', 'wp-image-watermark' ) ) );
     }
@@ -121,10 +125,11 @@ class WPIWM_Media_Handler {
         $result = WPIWM_Watermark_Engine::apply( $file );
         if ( $result ) {
             update_post_meta( $attachment_id, '_wpiwm_watermarked', 1 );
-            wp_update_attachment_metadata(
-                $attachment_id,
-                wp_generate_attachment_metadata( $attachment_id, $file )
-            );
+            $metadata = wp_generate_attachment_metadata( $attachment_id, $file );
+            if ( ! is_wp_error( $metadata ) && ! empty( $metadata ) ) {
+                wp_update_attachment_metadata( $attachment_id, $metadata );
+            }
+            clean_attachment_cache( $attachment_id );
         }
         return $result;
     }
