@@ -136,27 +136,21 @@ class WPIWM_Admin {
                     <td>
                         <?php
                         $positions = array(
-                            'top-left'    => '左上', 'top-center'    => '上中', 'top-right'    => '右上',
-                            'middle-left' => '左中', 'center'        => '正中', 'middle-right' => '右中',
+                            'top-left'    => '左上', 'top-center'  => '上中', 'top-right'    => '右上',
+                            'middle-left' => '左中', 'center'      => '正中', 'middle-right' => '右中',
                             'bottom-left' => '左下', 'bottom-center' => '下中', 'bottom-right' => '右下',
                         );
-                        echo '<table style="border-collapse:separate;border-spacing:4px;">';
-                        $i = 0;
-                        foreach ( $positions as $val => $label ) :
-                            if ( $i % 3 === 0 ) echo '<tr>';
                         ?>
-                            <td>
-                                <label style="display:flex;align-items:center;justify-content:center;width:64px;height:40px;border:2px solid <?php echo $s['watermark_position']===$val?'#2a9d8f':'#c3c4c7'; ?>;border-radius:4px;cursor:pointer;background:<?php echo $s['watermark_position']===$val?'#e8f5f4':'#f6f7f7'; ?>;font-size:13px;">
-                                    <input type="radio" name="watermark_position" value="<?php echo esc_attr($val); ?>" <?php checked($s['watermark_position'],$val); ?> style="display:none;">
-                                    <?php echo esc_html($label); ?>
-                                </label>
-                            </td>
-                        <?php
-                            $i++;
-                            if ( $i % 3 === 0 ) echo '</tr>';
-                        endforeach;
-                        echo '</table>';
-                        ?>
+                        <div class="wpiwm-pos-grid" id="wpiwm-pos-grid">
+                        <?php foreach ( $positions as $val => $label ) : ?>
+                            <label class="wpiwm-pos-cell<?php echo $s['watermark_position'] === $val ? ' active' : ''; ?>" data-value="<?php echo esc_attr( $val ); ?>">
+                                <input type="radio" name="watermark_position"
+                                       value="<?php echo esc_attr( $val ); ?>"
+                                       <?php checked( $s['watermark_position'], $val ); ?>>
+                                <?php echo esc_html( $label ); ?>
+                            </label>
+                        <?php endforeach; ?>
+                        </div>
                     </td>
                 </tr>
 

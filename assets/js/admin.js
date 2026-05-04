@@ -42,6 +42,20 @@
     });
 
     /* ================================================================
+     * Position grid – highlight selected cell
+     * ================================================================ */
+    $('#wpiwm-pos-grid .wpiwm-pos-cell input[type="radio"]').on('change', function () {
+        $('#wpiwm-pos-grid .wpiwm-pos-cell').removeClass('active');
+        $(this).closest('.wpiwm-pos-cell').addClass('active');
+    });
+
+    /* Also handle label click directly (belt-and-suspenders) */
+    $('#wpiwm-pos-grid .wpiwm-pos-cell').on('click', function () {
+        var $radio = $(this).find('input[type="radio"]');
+        $radio.prop('checked', true).trigger('change');
+    });
+
+    /* ================================================================
      * Media library – row action links
      * ================================================================ */
     $(document).on('click', '.wpiwm-row-apply', function (e) {
