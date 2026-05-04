@@ -3,73 +3,99 @@
 
     var mediaFrame;
     var previewWatermarkImage = null;
-    var previewBgImage = null;
     var previewCanvas = document.getElementById('wpiwm-preview-canvas');
     var previewCtx = previewCanvas ? previewCanvas.getContext('2d') : null;
 
-    // Picsum sample seeds for random preview background
-    var sampleSeeds = ['nature', 'landscape', 'mountains', 'city', 'forest', 'ocean'];
-    var currentSeed = sampleSeeds[Math.floor(Math.random() * sampleSeeds.length)];
+    /* ------------------------------------------------------------------
+     * Draw a built-in sample background (no external fetch = no CORS)
+     * ------------------------------------------------------------------ */
+    function drawPreviewBackground() {
+        if (!previewCtx || !previewCanvas) return;
+        var W = previewCanvas.width;
+        var H = previewCanvas.height;
 
-    function loadPreviewBg(callback) {
-        if (previewBgImage && previewBgImage.complete && previewBgImage.naturalWidth) {
-            if (callback) callback();
-            return;
-        }
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = function () {
-            previewBgImage = img;
-            if (callback) callback();
-        };
-        img.onerror = function () {
-            previewBgImage = null;
-            if (callback) callback();
-        };
-        img.src = 'https://picsum.photos/seed/' + currentSeed + '/960/540';
+        // Sky-gradient background
+        var grad = previewCtx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, '#6a85b6');
+        grad.addColorStop(1, '#bac8e0');
+        previewCtx.fillStyle = grad;
+        previewCtx.fillRect(0, 0, W, H);
+
+        // Sun
+        previewCtx.save();
+        previewCtx.beginPath();
+        previewCtx.arc(W * 0.78, H * 0.22, 54, 0, Math.PI * 2);
+        previewCtx.fillStyle = 'rgba(255,220,80,0.85)';
+        previewCtx.shadowColor = 'rgba(255,200,0,0.5)';
+        previewCtx.shadowBlur = 30;
+        previewCtx.fill();
+        previewCtx.restore();
+
+        // Mountain 1
+        previewCtx.save();
+        previewCtx.beginPath();
+        previewCtx.moveTo(0, H * 0.72);
+        previewCtx.lineTo(W * 0.22, H * 0.32);
+        previewCtx.lineTo(W * 0.45, H * 0.72);
+        previewCtx.closePath();
+        previewCtx.fillStyle = '#4a6741';
+        previewCtx.fill();
+        previewCtx.restore();
+
+        // Mountain 2
+        previewCtx.save();
+        previewCtx.beginPath();
+        previewCtx.moveTo(W * 0.3, H * 0.72);
+        previewCtx.lineTo(W * 0.55, H * 0.28);
+        previewCtx.lineTo(W * 0.8, H * 0.72);
+        previewCtx.closePath();
+        previewCtx.fillStyle = '#3a5232';
+        previewCtx.fill();
+        previewCtx.restore();
+
+        // Snowcap
+        previewCtx.save();
+        previewCtx.beginPath();
+        previewCtx.moveTo(W * 0.55, H * 0.28);
+        previewCtx.lineTo(W * 0.62, H * 0.42);
+        previewCtx.lineTo(W * 0.48, H * 0.42);
+        previewCtx.closePath();
+        previewCtx.fillStyle = 'rgba(255,255,255,0.85)';
+        previewCtx.fill();
+        previewCtx.restore();
+
+        // Ground
+        previewCtx.fillStyle = '#5a8a3c';
+        previewCtx.fillRect(0, H * 0.72, W, H * 0.28);
+
+        // Lake
+        previewCtx.save();
+        previewCtx.beginPath();
+        previewCtx.ellipse(W * 0.5, H * 0.82, W * 0.25, H * 0.06, 0, 0, Math.PI * 2);
+        previewCtx.fillStyle = 'rgba(100,160,210,0.7)';
+        previewCtx.fill();
+        previewCtx.restore();
+
+        // Label
+        previewCtx.save();
+        previewCtx.fillStyle = 'rgba(255,255,255,0.55)';
+        previewCtx.font = '16px sans-serif';
+        previewCtx.fillText('預覽示意圖', 16, H - 18);
+        previewCtx.restore();
     }
 
     function getPositionCoords(position, baseW, baseH, elementW, elementH, offsetX, offsetY) {
         switch (position) {
-            case 'top-left':
-                return { x: offsetX, y: offsetY };
-            case 'top-center':
-                return { x: (baseW - elementW) / 2, y: offsetY };
-            case 'top-right':
-                return { x: baseW - elementW - offsetX, y: offsetY };
-            case 'middle-left':
-                return { x: offsetX, y: (baseH - elementH) / 2 };
-            case 'center':
-                return { x: (baseW - elementW) / 2, y: (baseH - elementH) / 2 };
-            case 'middle-right':
-                return { x: baseW - elementW - offsetX, y: (baseH - elementH) / 2 };
-            case 'bottom-left':
-                return { x: offsetX, y: baseH - elementH - offsetY };
-            case 'bottom-center':
-                return { x: (baseW - elementW) / 2, y: baseH - elementH - offsetY };
+            case 'top-left':     return { x: offsetX, y: offsetY };
+            case 'top-center':   return { x: (baseW - elementW) / 2, y: offsetY };
+            case 'top-right':    return { x: baseW - elementW - offsetX, y: offsetY };
+            case 'middle-left':  return { x: offsetX, y: (baseH - elementH) / 2 };
+            case 'center':       return { x: (baseW - elementW) / 2, y: (baseH - elementH) / 2 };
+            case 'middle-right': return { x: baseW - elementW - offsetX, y: (baseH - elementH) / 2 };
+            case 'bottom-left':  return { x: offsetX, y: baseH - elementH - offsetY };
+            case 'bottom-center':return { x: (baseW - elementW) / 2, y: baseH - elementH - offsetY };
             case 'bottom-right':
-            default:
-                return { x: baseW - elementW - offsetX, y: baseH - elementH - offsetY };
-        }
-    }
-
-    function drawPreviewBackground() {
-        if (!previewCtx || !previewCanvas) return;
-        if (previewBgImage && previewBgImage.complete && previewBgImage.naturalWidth) {
-            previewCtx.drawImage(previewBgImage, 0, 0, previewCanvas.width, previewCanvas.height);
-        } else {
-            var gradient = previewCtx.createLinearGradient(0, 0, previewCanvas.width, previewCanvas.height);
-            gradient.addColorStop(0, '#c9d6df');
-            gradient.addColorStop(1, '#52616b');
-            previewCtx.fillStyle = gradient;
-            previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-            previewCtx.fillStyle = 'rgba(255,255,255,0.08)';
-            previewCtx.fillRect(48, 48, previewCanvas.width - 96, previewCanvas.height - 96);
-            previewCtx.fillStyle = 'rgba(255,255,255,0.5)';
-            previewCtx.font = '600 28px sans-serif';
-            previewCtx.fillText('Preview Image', 72, 100);
-            previewCtx.font = '400 20px sans-serif';
-            previewCtx.fillText('示意圖載入中…', 72, 138);
+            default:             return { x: baseW - elementW - offsetX, y: baseH - elementH - offsetY };
         }
     }
 
@@ -78,51 +104,69 @@
 
         drawPreviewBackground();
 
-        var type = $('input[name="watermark_type"]:checked').val();
+        var W        = previewCanvas.width;
+        var H        = previewCanvas.height;
+        var type     = $('input[name="watermark_type"]:checked').val() || 'text';
         var position = $('input[name="watermark_position"]:checked').val() || 'bottom-right';
-        var offsetX = parseInt($('input[name="watermark_offset_x"]').val(), 10) || 0;
-        var offsetY = parseInt($('input[name="watermark_offset_y"]').val(), 10) || 0;
+        var offsetX  = parseInt($('input[name="watermark_offset_x"]').val(), 10) || 0;
+        var offsetY  = parseInt($('input[name="watermark_offset_y"]').val(), 10) || 0;
 
-        if (type === 'image' && previewWatermarkImage && previewWatermarkImage.complete) {
-            var scale = parseInt($('input[name="watermark_scale"]').val(), 10) || 20;
-            var opacity = (parseInt($('input[name="watermark_image_opacity"]').val(), 10) || 80) / 100;
-            var drawW = Math.max(24, previewCanvas.width * scale / 100);
-            var ratio = previewWatermarkImage.naturalWidth ? (previewWatermarkImage.naturalHeight / previewWatermarkImage.naturalWidth) : 1;
-            var drawH = drawW * ratio;
-            var pos = getPositionCoords(position, previewCanvas.width, previewCanvas.height, drawW, drawH, offsetX, offsetY);
-            previewCtx.save();
-            previewCtx.globalAlpha = opacity;
-            previewCtx.drawImage(previewWatermarkImage, pos.x, pos.y, drawW, drawH);
-            previewCtx.restore();
+        if (type === 'image') {
+            if (previewWatermarkImage && previewWatermarkImage.complete && previewWatermarkImage.naturalWidth) {
+                var scale   = parseInt($('input[name="watermark_scale"]').val(), 10) || 20;
+                var opacity = (parseInt($('input[name="watermark_image_opacity"]').val(), 10) || 80) / 100;
+                var drawW   = Math.max(24, W * scale / 100);
+                var ratio   = previewWatermarkImage.naturalHeight / previewWatermarkImage.naturalWidth;
+                var drawH   = drawW * ratio;
+                var pos     = getPositionCoords(position, W, H, drawW, drawH, offsetX, offsetY);
+                previewCtx.save();
+                previewCtx.globalAlpha = opacity;
+                previewCtx.drawImage(previewWatermarkImage, pos.x, pos.y, drawW, drawH);
+                previewCtx.restore();
+            } else {
+                // 尚未選圖時顯示提示
+                previewCtx.save();
+                previewCtx.fillStyle = 'rgba(255,255,255,0.7)';
+                previewCtx.font = '18px sans-serif';
+                previewCtx.fillText('← 請先選擇浮水印圖片', 30, H / 2);
+                previewCtx.restore();
+            }
             return;
         }
 
-        var text = $('input[name="watermark_text"]').val() || WPIWM_Admin.preview_sample_text;
-        var fontSize = parseInt($('input[name="watermark_font_size"]').val(), 10) || 36;
-        var color = $('input[name="watermark_font_color"]').val() || '#ffffff';
-        var opacityText = (parseInt($('input[name="watermark_text_opacity"]').val(), 10) || 70) / 100;
-        fontSize = Math.max(12, Math.round(fontSize * 1.4));
+        // Text watermark
+        var text      = $('input[name="watermark_text"]').val();
+        if (!text) text = (typeof WPIWM_Admin !== 'undefined' && WPIWM_Admin.preview_sample_text) ? WPIWM_Admin.preview_sample_text : '浮水印預覽';
+        var fontSize  = Math.max(12, Math.round(parseInt($('input[name="watermark_font_size"]').val(), 10) || 36));
+        var color     = $('input[name="watermark_font_color"]').val() || '#ffffff';
+        var opacity   = (parseInt($('input[name="watermark_text_opacity"]').val(), 10) || 70) / 100;
+
+        // Scale font proportionally to canvas (canvas=960px, design size)
+        var scaledFont = Math.max(12, Math.round(fontSize * (W / 960)));
 
         previewCtx.save();
-        previewCtx.font = '700 ' + fontSize + 'px sans-serif';
+        previewCtx.font = 'bold ' + scaledFont + 'px Arial, sans-serif';
         var metrics = previewCtx.measureText(text);
-        var textW = metrics.width;
-        var textH = fontSize;
-        var posText = getPositionCoords(position, previewCanvas.width, previewCanvas.height, textW, textH, offsetX, offsetY);
-        previewCtx.globalAlpha = opacityText;
-        previewCtx.fillStyle = color;
-        previewCtx.shadowColor = 'rgba(0,0,0,0.22)';
-        previewCtx.shadowBlur = 8;
-        previewCtx.fillText(text, posText.x, posText.y + textH);
+        var textW   = metrics.width;
+        var textH   = scaledFont;
+        var pos     = getPositionCoords(position, W, H, textW, textH, offsetX, offsetY);
+
+        // Shadow for readability
+        previewCtx.shadowColor = 'rgba(0,0,0,0.5)';
+        previewCtx.shadowBlur  = 6;
+        previewCtx.globalAlpha = opacity;
+        previewCtx.fillStyle   = color;
+        previewCtx.fillText(text, pos.x, pos.y + textH);
         previewCtx.restore();
     }
 
     function syncRangeLabels() {
         $('.wpiwm-range').each(function () {
-            var $range = $(this);
-            $range.next('span').text($range.val() + '%');
+            $(this).next('span').text($(this).val() + '%');
         });
     }
+
+    // ---- Event bindings ----
 
     $('input[name="watermark_type"]').on('change', function () {
         var val = $(this).val();
@@ -155,13 +199,13 @@
         mediaFrame.on('select', function () {
             var attachment = mediaFrame.state().get('selection').first().toJSON();
             $('#watermark_image_id').val(attachment.id);
-            var preview = attachment.sizes && attachment.sizes.thumbnail ? attachment.sizes.thumbnail.url : attachment.url;
-            $('#wpiwm-image-preview').html('<img src="' + preview + '" style="max-width:120px;max-height:80px;border:1px solid #ddd;border-radius:4px;">');
+            var thumbUrl = attachment.sizes && attachment.sizes.thumbnail ? attachment.sizes.thumbnail.url : attachment.url;
+            $('#wpiwm-image-preview').html('<img src="' + thumbUrl + '" style="max-width:120px;max-height:80px;border:1px solid #ddd;border-radius:4px;">');
             $('#wpiwm-remove-image').show();
 
             previewWatermarkImage = new Image();
-            previewWatermarkImage.crossOrigin = 'anonymous';
-            previewWatermarkImage.onload = renderPreview;
+            previewWatermarkImage.onload  = renderPreview;
+            previewWatermarkImage.onerror = function () { previewWatermarkImage = null; renderPreview(); };
             previewWatermarkImage.src = attachment.url;
         });
         mediaFrame.open();
@@ -175,11 +219,19 @@
         renderPreview();
     });
 
-    $(document).on('input change', 'input[name="watermark_text"], input[name="watermark_font_size"], input[name="watermark_font_color"], input[name="watermark_text_opacity"], input[name="watermark_scale"], input[name="watermark_image_opacity"], input[name="watermark_offset_x"], input[name="watermark_offset_y"]', function () {
-        syncRangeLabels();
-        renderPreview();
-    });
+    $(document).on(
+        'input change',
+        'input[name="watermark_text"], input[name="watermark_font_size"], ' +
+        'input[name="watermark_font_color"], input[name="watermark_text_opacity"], ' +
+        'input[name="watermark_scale"], input[name="watermark_image_opacity"], ' +
+        'input[name="watermark_offset_x"], input[name="watermark_offset_y"]',
+        function () {
+            syncRangeLabels();
+            renderPreview();
+        }
+    );
 
+    // Media library row actions
     $(document).on('click', '.wpiwm-apply', function (e) {
         e.preventDefault();
         var $link = $(this);
@@ -191,13 +243,9 @@
             attachment_id: id,
             nonce: nonce
         }, function (res) {
-            if (res.success) {
-                alert(res.data.message);
-                location.reload();
-            } else {
-                alert(res.data.message);
-                $link.text('套用浮水印');
-            }
+            alert(res.success ? res.data.message : res.data.message);
+            if (res.success) location.reload();
+            else $link.text('套用浮水印');
         });
     });
 
@@ -213,23 +261,19 @@
             attachment_id: id,
             nonce: nonce
         }, function (res) {
-            if (res.success) {
-                alert(res.data.message);
-                location.reload();
-            } else {
-                alert(res.data.message);
-                $link.text('移除浮水印');
-            }
+            alert(res.success ? res.data.message : res.data.message);
+            if (res.success) location.reload();
+            else $link.text('清除標記');
         });
     });
 
+    // Batch tools
     $('#wpiwm-batch-all-apply').on('click', function () {
         if (!confirm(WPIWM_Admin.confirm_batch)) return;
         runBatch('apply');
     });
-
     $('#wpiwm-batch-all-remove').on('click', function () {
-        if (!confirm('確定要還原所有有備份的圖片嗎？')) return;
+        if (!confirm('確定要清除所有浮水印標記嗎？')) return;
         runBatch('remove');
     });
 
@@ -237,7 +281,6 @@
         $('#wpiwm-batch-progress').show();
         $('#wpiwm-batch-status').text('正在取得圖片清單…');
         $('#wpiwm-progress-fill').css('width', '0%');
-
         $.post(WPIWM_Admin.ajax_url, {
             action: 'wpiwm_get_all_image_ids',
             nonce: WPIWM_Admin.nonce
@@ -251,18 +294,16 @@
             var chunk     = 10;
             var processed = 0;
             var success   = 0;
-
             function processChunk(offset) {
                 var batch = ids.slice(offset, offset + chunk);
                 if (!batch.length) {
                     $('#wpiwm-batch-status').text('完成！成功處理 ' + success + ' / ' + total + ' 張圖片。');
                     return;
                 }
-                var action = mode === 'apply' ? 'wpiwm_batch_apply' : 'wpiwm_batch_remove';
                 $.post(WPIWM_Admin.ajax_url, {
-                    action: action,
-                    ids: batch,
-                    nonce: WPIWM_Admin.nonce
+                    action: mode === 'apply' ? 'wpiwm_batch_apply' : 'wpiwm_batch_remove',
+                    ids:    batch,
+                    nonce:  WPIWM_Admin.nonce
                 }, function (r) {
                     processed += batch.length;
                     if (r.success) success += r.data.success;
@@ -276,16 +317,16 @@
         });
     }
 
-    var existingPreviewImg = $('#wpiwm-image-preview img').attr('src');
-    if (existingPreviewImg) {
+    // Load existing watermark image preview if set
+    var existingImgSrc = $('#wpiwm-image-preview img').attr('src');
+    if (existingImgSrc) {
         previewWatermarkImage = new Image();
-        previewWatermarkImage.crossOrigin = 'anonymous';
-        previewWatermarkImage.onload = renderPreview;
-        previewWatermarkImage.src = existingPreviewImg;
+        previewWatermarkImage.onload  = renderPreview;
+        previewWatermarkImage.onerror = function () { previewWatermarkImage = null; renderPreview(); };
+        previewWatermarkImage.src = existingImgSrc;
     }
 
     syncRangeLabels();
-    // Load background sample image then render preview
-    loadPreviewBg(renderPreview);
+    renderPreview(); // immediate render with built-in background
 
 })(jQuery);
