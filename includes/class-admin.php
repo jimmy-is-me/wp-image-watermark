@@ -74,6 +74,12 @@ class WPIWM_Admin {
     public function render_page() {
         $s     = WPIWM_Settings::get();
         $saved = isset( $_GET['saved'] );
+
+        // Get full URL of watermark image for JS preview
+        $wm_url = '';
+        if ( ! empty( $s['watermark_image_id'] ) ) {
+            $wm_url = (string) wp_get_attachment_url( $s['watermark_image_id'] );
+        }
         ?>
         <div class="wrap">
         <h1>WP Image Watermark 設定</h1>
@@ -86,6 +92,10 @@ class WPIWM_Admin {
             <div class="notice notice-warning"><p>請先選擇一張浮水印圖片，自動套用才會生效。</p></div>
         <?php endif; ?>
 
+        <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap;">
+
+        <!-- Left: form -->
+        <div style="flex:1;min-width:400px;">
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <?php wp_nonce_field( 'wpiwm_settings_save' ); ?>
             <input type="hidden" name="action" value="wpiwm_save">
@@ -97,14 +107,14 @@ class WPIWM_Admin {
                     <th scope="row"><?php esc_html_e( '浮水印圖片', 'wp-image-watermark' ); ?></th>
                     <td>
                         <div id="wpiwm-image-preview" style="margin-bottom:8px;min-height:32px;">
-                            <?php if ( $s['watermark_image_id'] ) : ?>
+                            <?php if ( ! empty( $s['watermark_image_id'] ) ) : ?>
                                 <img src="<?php echo esc_url( wp_get_attachment_thumb_url( $s['watermark_image_id'] ) ); ?>" style="max-height:80px;border:1px solid #ddd;border-radius:4px;">
                             <?php endif; ?>
                         </div>
                         <input type="hidden" name="watermark_image_id" id="watermark_image_id" value="<?php echo (int) $s['watermark_image_id']; ?>">
                         <button type="button" class="button" id="wpiwm-select-image">選擇媒體</button>
-                        <button type="button" class="button" id="wpiwm-clear-image" <?php echo $s['watermark_image_id'] ? '' : 'style="display:none;"'; ?>>清除</button>
-                        <p class="description" style="margin-top:6px;">建議使用背景透明的 PNG 圖片作為浮水印。此圖片本身不會被自動套用浮水印。</p>
+                        <button type="button" class="button" id="wpiwm-clear-image"<?php echo empty( $s['watermark_image_id'] ) ? ' style="display:none;"' : ''; ?>>清除</button>
+                        <p class="description" style="margin-top:6px;">建議使用背景透明的 PNG 圖片。此圖片本身不會被自動套用浮水印。</p>
                     </td>
                 </tr>
 
@@ -157,11 +167,11 @@ class WPIWM_Admin {
                 <!-- X/Y 偏移 -->
                 <tr>
                     <th scope="row"><?php esc_html_e( 'X 偏移 (px)', 'wp-image-watermark' ); ?></th>
-                    <td><input type="number" name="watermark_offset_x" value="<?php echo (int) $s['watermark_offset_x']; ?>" min="0" class="small-text"></td>
+                    <td><input type="number" name="watermark_offset_x" id="watermark_offset_x" value="<?php echo (int) $s['watermark_offset_x']; ?>" min="0" class="small-text"></td>
                 </tr>
                 <tr>
                     <th scope="row"><?php esc_html_e( 'Y 偏移 (px)', 'wp-image-watermark' ); ?></th>
-                    <td><input type="number" name="watermark_offset_y" value="<?php echo (int) $s['watermark_offset_y']; ?>" min="0" class="small-text"></td>
+                    <td><input type="number" name="watermark_offset_y" id="watermark_offset_y" value="<?php echo (int) $s['watermark_offset_y']; ?>" min="0" class="small-text"></td>
                 </tr>
 
                 <!-- 自動套用 -->
@@ -190,6 +200,19 @@ class WPIWM_Admin {
 
             <?php submit_button( '儲存設定' ); ?>
         </form>
+        </div>
+
+        <!-- Right: preview -->
+        <div style="flex:0 0 360px;">
+            <h3 style="margin-top:0;margin-bottom:10px;font-size:14px;">浮水印效果預覽</h3>
+            <canvas id="wpiwm-preview-canvas" width="360" height="240"
+                    style="display:block;width:360px;height:240px;border:1px solid #dcdcde;border-radius:4px;"></canvas>
+            <p class="description" style="margin-top:6px;">此為示意預覽，實際效果以套用後圖片為準。</p>
+            <!-- pass initial watermark url to JS -->
+            <input type="hidden" id="wpiwm-initial-wm-url" value="<?php echo esc_url( $wm_url ); ?>">
+        </div>
+
+        </div><!-- end flex wrapper -->
         </div>
         <?php
     }
