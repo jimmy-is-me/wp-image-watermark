@@ -12,16 +12,6 @@
         });
     }
 
-    // Drag-drop protection
-    if (opts.dragDrop) {
-        document.addEventListener('dragstart', function (e) {
-            if (e.target && e.target.tagName === 'IMG') {
-                e.preventDefault();
-                return false;
-            }
-        });
-    }
-
     // DevTools detection (experimental)
     if (opts.devTools) {
         var devtoolsOpen = false;
