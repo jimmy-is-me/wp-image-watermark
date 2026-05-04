@@ -11,32 +11,62 @@ class WPIWM_Media_Handler {
     }
 
     private function __construct() {
-        add_action( 'add_attachment',             array( $this, 'on_upload' ), 999 );
-        add_action( 'wp_ajax_wpiwm_apply_single', array( $this, 'ajax_apply' ) );
-        add_action( 'wp_ajax_wpiwm_remove_single',array( $this, 'ajax_remove' ) );
+        /*
+         * WHY wp_generate_attachment_metadata and NOT add_attachment:
+         *
+         * add_attachment fires immediately after the DB row is inserted but
+         * BEFORE WordPress finishes writing the image file and generating
+         * thumbnails. If we apply the watermark there, WordPress may
+         * overwrite the original file when it generates sub-sizes.
+         *
+         * wp_generate_attachment_metadata is a FILTER that fires after ALL
+         * sub-sizes have been created. The original file is fully on disk
+         * and will not be touched again, so watermarking here is stable.
+         */
+        add_filter( 'wp_generate_attachment_metadata', array( $this, 'on_generate_metadata' ), 999, 2 );
+
+        add_action( 'wp_ajax_wpiwm_apply_single',  array( $this, 'ajax_apply' ) );
+        add_action( 'wp_ajax_wpiwm_remove_single', array( $this, 'ajax_remove' ) );
         add_filter( 'manage_media_columns',        array( $this, 'add_column' ) );
         add_action( 'manage_media_custom_column',  array( $this, 'render_column' ), 10, 2 );
         add_filter( 'media_row_actions',           array( $this, 'row_actions' ), 10, 2 );
         add_filter( 'attachment_fields_to_edit',   array( $this, 'attachment_fields' ), 10, 2 );
     }
 
-    /* ---- Auto watermark on upload ---- */
+    /* ----------------------------------------------------------------
+     * Auto watermark – fires after thumbnails are fully generated
+     * ---------------------------------------------------------------- */
 
-    public function on_upload( $attachment_id ) {
+    public function on_generate_metadata( $metadata, $attachment_id ) {
         $settings = WPIWM_Settings::get();
-        if ( empty( $settings['auto_watermark'] ) ) return;
+
+        if ( empty( $settings['auto_watermark'] ) ) {
+            return $metadata;
+        }
+
         $mime = get_post_mime_type( $attachment_id );
-        if ( ! $mime || strpos( $mime, 'image/' ) !== 0 ) return;
+        if ( ! $mime || strpos( $mime, 'image/' ) !== 0 ) {
+            return $metadata;
+        }
+
         if ( $settings['watermark_type'] === 'text' && '' === trim( (string) $settings['watermark_text'] ) ) {
-            error_log( 'WPIWM auto: skipped – watermark_text empty' ); return;
+            error_log( 'WPIWM auto: skipped – watermark_text empty' );
+            return $metadata;
         }
+
         if ( $settings['watermark_type'] === 'image' && empty( $settings['watermark_image_id'] ) ) {
-            error_log( 'WPIWM auto: skipped – watermark_image_id not set' ); return;
+            error_log( 'WPIWM auto: skipped – watermark_image_id not set' );
+            return $metadata;
         }
+
         $this->do_apply( $attachment_id );
+
+        return $metadata;
     }
 
-    /* ---- AJAX handlers ---- */
+    /* ----------------------------------------------------------------
+     * AJAX handlers
+     * ---------------------------------------------------------------- */
 
     public function ajax_apply() {
         check_ajax_referer( 'wpiwm_nonce', 'nonce' );
@@ -76,7 +106,9 @@ class WPIWM_Media_Handler {
         ) );
     }
 
-    /* ---- Core apply logic ---- */
+    /* ----------------------------------------------------------------
+     * Core apply logic
+     * ---------------------------------------------------------------- */
 
     public function do_apply( $attachment_id ) {
         $file = get_attached_file( $attachment_id );
@@ -93,7 +125,9 @@ class WPIWM_Media_Handler {
         return $ok;
     }
 
-    /* ---- Media library list columns ---- */
+    /* ----------------------------------------------------------------
+     * Media library – columns
+     * ---------------------------------------------------------------- */
 
     public function add_column( $columns ) {
         $columns['wpiwm_status'] = '浮水印';
@@ -125,7 +159,9 @@ class WPIWM_Media_Handler {
         return $actions;
     }
 
-    /* ---- Attachment detail sidebar ---- */
+    /* ----------------------------------------------------------------
+     * Attachment detail sidebar
+     * ---------------------------------------------------------------- */
 
     public function attachment_fields( $form_fields, $post ) {
         if ( strpos( (string) get_post_mime_type( $post->ID ), 'image/' ) !== 0 ) return $form_fields;
