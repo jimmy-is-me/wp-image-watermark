@@ -36,6 +36,13 @@ class WPIWM_Admin {
             WPIWM_VERSION,
             true
         );
+
+        $s      = WPIWM_Settings::get();
+        $wm_url = '';
+        if ( ! empty( $s['watermark_image_id'] ) ) {
+            $wm_url = (string) wp_get_attachment_url( (int) $s['watermark_image_id'] );
+        }
+
         wp_localize_script( 'wpiwm-admin', 'WPIWM_Admin', array(
             'nonce'          => wp_create_nonce( 'wpiwm_nonce' ),
             'ajax_url'       => admin_url( 'admin-ajax.php' ),
@@ -43,6 +50,14 @@ class WPIWM_Admin {
             'removing'       => '清除中…',
             'confirm_remove' => '確定要清除浮水印標記嗎？（圖片本身不會還原）',
         ) );
+
+        /* Pass watermark URL directly as a JS variable – avoids relying on DOM */
+        wp_add_inline_script(
+            'wpiwm-admin',
+            'window.WPIWM_WmUrl = ' . wp_json_encode( $wm_url ) . ';',
+            'before'
+        );
+
         wp_enqueue_style(
             'wpiwm-admin',
             WPIWM_PLUGIN_URL . 'assets/css/admin.css',
@@ -74,12 +89,6 @@ class WPIWM_Admin {
     public function render_page() {
         $s     = WPIWM_Settings::get();
         $saved = isset( $_GET['saved'] );
-
-        // Get full URL of watermark image for JS preview
-        $wm_url = '';
-        if ( ! empty( $s['watermark_image_id'] ) ) {
-            $wm_url = (string) wp_get_attachment_url( $s['watermark_image_id'] );
-        }
         ?>
         <div class="wrap">
         <h1>WP Image Watermark 設定</h1>
@@ -92,10 +101,10 @@ class WPIWM_Admin {
             <div class="notice notice-warning"><p>請先選擇一張浮水印圖片，自動套用才會生效。</p></div>
         <?php endif; ?>
 
-        <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap;">
+        <div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;margin-top:16px;">
 
-        <!-- Left: form -->
-        <div style="flex:1;min-width:400px;">
+        <!-- ===== Left: settings form ===== -->
+        <div style="flex:1;min-width:380px;">
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
             <?php wp_nonce_field( 'wpiwm_settings_save' ); ?>
             <input type="hidden" name="action" value="wpiwm_save">
@@ -104,7 +113,7 @@ class WPIWM_Admin {
 
                 <!-- 浮水印圖片 -->
                 <tr>
-                    <th scope="row"><?php esc_html_e( '浮水印圖片', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">浮水印圖片</th>
                     <td>
                         <div id="wpiwm-image-preview" style="margin-bottom:8px;min-height:32px;">
                             <?php if ( ! empty( $s['watermark_image_id'] ) ) : ?>
@@ -118,9 +127,9 @@ class WPIWM_Admin {
                     </td>
                 </tr>
 
-                <!-- 圖片透明度 -->
+                <!-- 透明度 -->
                 <tr>
-                    <th scope="row"><?php esc_html_e( '透明度 (%)', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">透明度 (%)</th>
                     <td>
                         <input type="range" name="watermark_image_opacity" id="watermark_image_opacity"
                                value="<?php echo (int) $s['watermark_image_opacity']; ?>" min="0" max="100"
@@ -129,9 +138,9 @@ class WPIWM_Admin {
                     </td>
                 </tr>
 
-                <!-- 圖片尺寸 -->
+                <!-- 尺寸 -->
                 <tr>
-                    <th scope="row"><?php esc_html_e( '圖片尺寸 (%)', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">圖片尺寸 (%)</th>
                     <td>
                         <input type="range" name="watermark_scale" id="watermark_scale"
                                value="<?php echo (int) $s['watermark_scale']; ?>" min="1" max="100"
@@ -142,18 +151,18 @@ class WPIWM_Admin {
 
                 <!-- 位置 -->
                 <tr>
-                    <th scope="row"><?php esc_html_e( '浮水印位置', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">浮水印位置</th>
                     <td>
                         <?php
                         $positions = array(
-                            'top-left'    => '左上', 'top-center'  => '上中', 'top-right'    => '右上',
-                            'middle-left' => '左中', 'center'      => '正中', 'middle-right' => '右中',
+                            'top-left'    => '左上', 'top-center'    => '上中', 'top-right'    => '右上',
+                            'middle-left' => '左中', 'center'        => '正中', 'middle-right' => '右中',
                             'bottom-left' => '左下', 'bottom-center' => '下中', 'bottom-right' => '右下',
                         );
                         ?>
                         <div class="wpiwm-pos-grid" id="wpiwm-pos-grid">
                         <?php foreach ( $positions as $val => $label ) : ?>
-                            <label class="wpiwm-pos-cell<?php echo $s['watermark_position'] === $val ? ' active' : ''; ?>" data-value="<?php echo esc_attr( $val ); ?>">
+                            <label class="wpiwm-pos-cell<?php echo $s['watermark_position'] === $val ? ' active' : ''; ?>">
                                 <input type="radio" name="watermark_position"
                                        value="<?php echo esc_attr( $val ); ?>"
                                        <?php checked( $s['watermark_position'], $val ); ?>>
@@ -166,17 +175,17 @@ class WPIWM_Admin {
 
                 <!-- X/Y 偏移 -->
                 <tr>
-                    <th scope="row"><?php esc_html_e( 'X 偏移 (px)', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">X 偏移 (px)</th>
                     <td><input type="number" name="watermark_offset_x" id="watermark_offset_x" value="<?php echo (int) $s['watermark_offset_x']; ?>" min="0" class="small-text"></td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e( 'Y 偏移 (px)', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">Y 偏移 (px)</th>
                     <td><input type="number" name="watermark_offset_y" id="watermark_offset_y" value="<?php echo (int) $s['watermark_offset_y']; ?>" min="0" class="small-text"></td>
                 </tr>
 
                 <!-- 自動套用 -->
                 <tr>
-                    <th scope="row"><?php esc_html_e( '自動套用', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">自動套用</th>
                     <td>
                         <label>
                             <input type="checkbox" name="auto_watermark" value="1" <?php checked( $s['auto_watermark'] ); ?>>
@@ -187,7 +196,7 @@ class WPIWM_Admin {
 
                 <!-- 停用右鍵 -->
                 <tr>
-                    <th scope="row"><?php esc_html_e( '停用右鍵', 'wp-image-watermark' ); ?></th>
+                    <th scope="row">停用右鍵</th>
                     <td>
                         <label>
                             <input type="checkbox" name="protect_right_click" value="1" <?php checked( $s['protect_right_click'] ); ?>>
@@ -202,18 +211,16 @@ class WPIWM_Admin {
         </form>
         </div>
 
-        <!-- Right: preview -->
-        <div style="flex:0 0 360px;">
+        <!-- ===== Right: preview ===== -->
+        <div style="flex:0 0 auto;padding-top:4px;">
             <h3 style="margin-top:0;margin-bottom:10px;font-size:14px;">浮水印效果預覽</h3>
             <canvas id="wpiwm-preview-canvas" width="360" height="240"
-                    style="display:block;width:360px;height:240px;border:1px solid #dcdcde;border-radius:4px;"></canvas>
-            <p class="description" style="margin-top:6px;">此為示意預覽，實際效果以套用後圖片為準。</p>
-            <!-- pass initial watermark url to JS -->
-            <input type="hidden" id="wpiwm-initial-wm-url" value="<?php echo esc_url( $wm_url ); ?>">
+                    style="display:block;width:360px;height:240px;"></canvas>
+            <p class="description" style="margin-top:6px;max-width:360px;">此為示意預覽，實際效果以套用後圖片為準。</p>
         </div>
 
-        </div><!-- end flex wrapper -->
-        </div>
+        </div><!-- /.flex -->
+        </div><!-- /.wrap -->
         <?php
     }
 }

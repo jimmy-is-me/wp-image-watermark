@@ -3,16 +3,18 @@ jQuery(function ($) {
     'use strict';
 
     /* ================================================================
+     * State: keep full-size watermark URL in memory
+     * ================================================================ */
+    var currentWmUrl = (window.WPIWM_WmUrl && window.WPIWM_WmUrl !== '') ? window.WPIWM_WmUrl : null;
+
+    /* ================================================================
      * Watermark image selector
      * ================================================================ */
     var mediaFrame = null;
 
     $(document).on('click', '#wpiwm-select-image', function (e) {
         e.preventDefault();
-        if (mediaFrame) {
-            mediaFrame.open();
-            return;
-        }
+        if (mediaFrame) { mediaFrame.open(); return; }
         mediaFrame = wp.media({
             title: '\u9078\u64c7\u6d6e\u6c34\u5370\u5716\u7247',
             button: { text: '\u4f7f\u7528\u6b64\u5716\u7247' },
@@ -22,35 +24,40 @@ jQuery(function ($) {
         mediaFrame.on('select', function () {
             var att   = mediaFrame.state().get('selection').first().toJSON();
             var thumb = att.sizes && att.sizes.thumbnail ? att.sizes.thumbnail.url : att.url;
-            var full  = att.url;
+            currentWmUrl = att.url; // full-size URL
             $('#watermark_image_id').val(att.id);
             $('#wpiwm-image-preview').html(
                 '<img src="' + thumb + '" style="max-height:80px;border:1px solid #ddd;border-radius:4px;">'
             );
             $('#wpiwm-clear-image').show();
-            // update preview with new watermark
-            renderPreview(full);
+            renderPreview();
         });
         mediaFrame.open();
     });
 
     $(document).on('click', '#wpiwm-clear-image', function (e) {
         e.preventDefault();
+        currentWmUrl = null;
         $('#watermark_image_id').val('');
         $('#wpiwm-image-preview').html('');
         $(this).hide();
-        renderPreview(null);
+        renderPreview();
     });
 
     /* ================================================================
-     * Range sliders
+     * Range sliders – live value display + preview
      * ================================================================ */
-    $(document).on('input', '#watermark_image_opacity', function () {
+    $(document).on('input change', '#watermark_image_opacity', function () {
         $('#watermark_image_opacity_val').text($(this).val());
         schedulePreview();
     });
-    $(document).on('input', '#watermark_scale', function () {
+    $(document).on('input change', '#watermark_scale', function () {
         $('#watermark_scale_val').text($(this).val());
+        schedulePreview();
+    });
+
+    /* X/Y offset live preview */
+    $(document).on('input change', '#watermark_offset_x, #watermark_offset_y', function () {
         schedulePreview();
     });
 
@@ -70,78 +77,61 @@ jQuery(function ($) {
 
     function schedulePreview() {
         clearTimeout(previewTimer);
-        previewTimer = setTimeout(function () {
-            // use current watermark url if set
-            var $img = $('#wpiwm-image-preview img');
-            renderPreview($img.length ? $img.attr('src') : null);
-        }, 300);
+        previewTimer = setTimeout(renderPreview, 250);
     }
 
-    function renderPreview(wmUrl) {
+    function renderPreview() {
         var canvas = document.getElementById('wpiwm-preview-canvas');
         if (!canvas) return;
         var ctx = canvas.getContext('2d');
+        var CW  = canvas.width;
+        var CH  = canvas.height;
 
-        var CW = canvas.width;
-        var CH = canvas.height;
-
-        // draw white background
-        ctx.clearRect(0, 0, CW, CH);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, CW, CH);
-
-        // draw checkerboard to show it's a blank canvas
-        var tileSize = 20;
-        for (var row = 0; row < CH / tileSize; row++) {
-            for (var col = 0; col < CW / tileSize; col++) {
-                ctx.fillStyle = (row + col) % 2 === 0 ? '#f0f0f0' : '#ffffff';
-                ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
+        /* Checkerboard background */
+        var tile = 20;
+        for (var r = 0; r < CH / tile; r++) {
+            for (var c = 0; c < CW / tile; c++) {
+                ctx.fillStyle = (r + c) % 2 === 0 ? '#f0f0f0' : '#ffffff';
+                ctx.fillRect(c * tile, r * tile, tile, tile);
             }
         }
 
-        if (!wmUrl) return;
+        if (!currentWmUrl) return;
+
+        var opacity  = parseInt($('#watermark_image_opacity').val(), 10) / 100;
+        var scale    = parseInt($('#watermark_scale').val(), 10) / 100;
+        var position = $('input[name="watermark_position"]:checked').val() || 'bottom-right';
+        var offsetX  = parseInt($('#watermark_offset_x').val(), 10) || 10;
+        var offsetY  = parseInt($('#watermark_offset_y').val(), 10) || 10;
 
         var wmImg = new Image();
         wmImg.crossOrigin = 'anonymous';
         wmImg.onload = function () {
-            var opacity  = parseInt($('#watermark_image_opacity').val(), 10) / 100;
-            var scale    = parseInt($('#watermark_scale').val(), 10) / 100;
-            var position = $('input[name="watermark_position"]:checked').val() || 'bottom-right';
-            var offsetX  = parseInt($('#watermark_offset_x').val(), 10) || 10;
-            var offsetY  = parseInt($('#watermark_offset_y').val(), 10) || 10;
-
-            var wmW = Math.round(CW * scale);
-            var wmH = Math.round(wmImg.height * (wmW / wmImg.width));
-
+            var wmW = Math.max(1, Math.round(CW * scale));
+            var wmH = Math.max(1, Math.round(wmImg.height * (wmW / wmImg.width)));
             var x, y;
-            if      (position === 'top-left')      { x = offsetX;            y = offsetY; }
-            else if (position === 'top-center')    { x = (CW - wmW) / 2;    y = offsetY; }
-            else if (position === 'top-right')     { x = CW - wmW - offsetX; y = offsetY; }
-            else if (position === 'middle-left')   { x = offsetX;            y = (CH - wmH) / 2; }
-            else if (position === 'center')        { x = (CW - wmW) / 2;    y = (CH - wmH) / 2; }
-            else if (position === 'middle-right')  { x = CW - wmW - offsetX; y = (CH - wmH) / 2; }
-            else if (position === 'bottom-left')   { x = offsetX;            y = CH - wmH - offsetY; }
-            else if (position === 'bottom-center') { x = (CW - wmW) / 2;    y = CH - wmH - offsetY; }
-            else                                   { x = CW - wmW - offsetX; y = CH - wmH - offsetY; } // bottom-right
+
+            switch (position) {
+                case 'top-left':      x = offsetX;            y = offsetY;            break;
+                case 'top-center':    x = (CW - wmW) / 2;    y = offsetY;            break;
+                case 'top-right':     x = CW - wmW - offsetX; y = offsetY;            break;
+                case 'middle-left':   x = offsetX;            y = (CH - wmH) / 2;    break;
+                case 'center':        x = (CW - wmW) / 2;    y = (CH - wmH) / 2;    break;
+                case 'middle-right':  x = CW - wmW - offsetX; y = (CH - wmH) / 2;    break;
+                case 'bottom-left':   x = offsetX;            y = CH - wmH - offsetY; break;
+                case 'bottom-center': x = (CW - wmW) / 2;    y = CH - wmH - offsetY; break;
+                default:              x = CW - wmW - offsetX; y = CH - wmH - offsetY; break; // bottom-right
+            }
 
             ctx.globalAlpha = opacity;
             ctx.drawImage(wmImg, x, y, wmW, wmH);
             ctx.globalAlpha = 1;
         };
-        wmImg.onerror = function () {
-            // crossOrigin blocked – try without
-            var wmImg2 = new Image();
-            wmImg2.onload = function () { wmImg.onload.call(wmImg2); };
-            wmImg2.src = wmUrl;
-        };
-        wmImg.src = wmUrl;
+        wmImg.src = currentWmUrl;
     }
 
-    // initial render on page load
-    (function () {
-        var $img = $('#wpiwm-image-preview img');
-        renderPreview($img.length ? $img.attr('src') : null);
-    })();
+    /* Initial render */
+    renderPreview();
 
     /* ================================================================
      * Media library – row action links
@@ -158,12 +148,8 @@ jQuery(function ($) {
             attachment_id: id,
             nonce: nonce,
         }, function (res) {
-            if (res.success) {
-                location.reload();
-            } else {
-                alert(res.data.message);
-                $a.text('\u5957\u7528\u6d6e\u6c34\u5370').css('pointer-events', '');
-            }
+            if (res.success) { location.reload(); }
+            else { alert(res.data.message); $a.text('\u5957\u7528\u6d6e\u6c34\u5370').css('pointer-events', ''); }
         });
     });
 
@@ -180,12 +166,8 @@ jQuery(function ($) {
             attachment_id: id,
             nonce: nonce,
         }, function (res) {
-            if (res.success) {
-                location.reload();
-            } else {
-                alert(res.data.message);
-                $a.text('\u6e05\u9664\u6a19\u8a18').css('pointer-events', '');
-            }
+            if (res.success) { location.reload(); }
+            else { alert(res.data.message); $a.text('\u6e05\u9664\u6a19\u8a18').css('pointer-events', ''); }
         });
     });
 
@@ -200,9 +182,7 @@ jQuery(function ($) {
         var nonce   = $btn.data('nonce');
         var $field  = $btn.closest('.wpiwm-field');
         var $status = $field.find('.wpiwm-status');
-
         $btn.prop('disabled', true).text(WPIWM_Admin.applying);
-
         $.post(WPIWM_Admin.ajax_url, {
             action: 'wpiwm_apply_single',
             attachment_id: id,
@@ -210,9 +190,7 @@ jQuery(function ($) {
         }, function (res) {
             $btn.prop('disabled', false).text('\u5957\u7528\u6d6e\u6c34\u5370');
             if (res.success) {
-                $status
-                    .text('\u2714 \u5df2\u5957\u7528\u6d6e\u6c34\u5370')
-                    .css({ color: '#2a9d8f', 'font-weight': '600' });
+                $status.text('\u2714 \u5df2\u5957\u7528\u6d6e\u6c34\u5370').css({ color: '#2a9d8f', 'font-weight': '600' });
             } else {
                 alert(res.data.message);
             }

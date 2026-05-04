@@ -1,18 +1,19 @@
 /* WP Image Watermark Admin CSS */
 
-.wpiwm-wrap { max-width: 900px; }
-.wpiwm-wrap h1 { margin-bottom: 20px; }
-
-/* Position grid */
+/* ----------------------------------------------------------------
+ * Position grid – 3×3
+ * ---------------------------------------------------------------- */
 .wpiwm-pos-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 72px);
+    display: grid !important;
+    grid-template-columns: repeat(3, 80px) !important;
+    grid-template-rows: repeat(3, 44px) !important;
     gap: 6px;
+    width: 264px;
 }
 
 .wpiwm-pos-cell {
     position: relative;
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
     height: 44px;
@@ -23,9 +24,10 @@
     background: #f6f7f7;
     transition: border-color .15s, background .15s;
     user-select: none;
+    box-sizing: border-box;
 }
 
-/* Hide the radio visually but keep it accessible & clickable */
+/* Radio: invisible but covers entire cell for click */
 .wpiwm-pos-cell input[type="radio"] {
     position: absolute;
     opacity: 0;
@@ -40,15 +42,28 @@
 
 .wpiwm-pos-cell:hover {
     border-color: #2a9d8f;
+    background: #f0faf9;
 }
 
 .wpiwm-pos-cell.active {
-    border-color: #2a9d8f;
-    background: #e8f5f4;
+    border-color: #2a9d8f !important;
+    background: #e8f5f4 !important;
     color: #1a6b60;
     font-weight: 600;
 }
 
-/* Progress bar */
-.wpiwm-progress-bar { height: 12px; background: #e5e5e5; border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+/* ----------------------------------------------------------------
+ * Preview canvas
+ * ---------------------------------------------------------------- */
+#wpiwm-preview-canvas {
+    display: block;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* ----------------------------------------------------------------
+ * Progress bar (batch)
+ * ---------------------------------------------------------------- */
+.wpiwm-progress-bar  { height: 12px; background: #e5e5e5; border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
 .wpiwm-progress-fill { height: 100%; background: #2a9d8f; width: 0; transition: width .3s; border-radius: 6px; }
