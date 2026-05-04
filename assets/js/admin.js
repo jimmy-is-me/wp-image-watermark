@@ -3,8 +3,31 @@
 
     var mediaFrame;
     var previewWatermarkImage = null;
+    var previewBgImage = null;
     var previewCanvas = document.getElementById('wpiwm-preview-canvas');
     var previewCtx = previewCanvas ? previewCanvas.getContext('2d') : null;
+
+    // Picsum sample seeds for random preview background
+    var sampleSeeds = ['nature', 'landscape', 'mountains', 'city', 'forest', 'ocean'];
+    var currentSeed = sampleSeeds[Math.floor(Math.random() * sampleSeeds.length)];
+
+    function loadPreviewBg(callback) {
+        if (previewBgImage && previewBgImage.complete && previewBgImage.naturalWidth) {
+            if (callback) callback();
+            return;
+        }
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+            previewBgImage = img;
+            if (callback) callback();
+        };
+        img.onerror = function () {
+            previewBgImage = null;
+            if (callback) callback();
+        };
+        img.src = 'https://picsum.photos/seed/' + currentSeed + '/960/540';
+    }
 
     function getPositionCoords(position, baseW, baseH, elementW, elementH, offsetX, offsetY) {
         switch (position) {
@@ -32,20 +55,22 @@
 
     function drawPreviewBackground() {
         if (!previewCtx || !previewCanvas) return;
-        var gradient = previewCtx.createLinearGradient(0, 0, previewCanvas.width, previewCanvas.height);
-        gradient.addColorStop(0, '#f3f4f6');
-        gradient.addColorStop(1, '#d1d5db');
-        previewCtx.fillStyle = gradient;
-        previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-
-        previewCtx.fillStyle = 'rgba(255,255,255,0.35)';
-        previewCtx.fillRect(48, 48, previewCanvas.width - 96, previewCanvas.height - 96);
-
-        previewCtx.fillStyle = '#6b7280';
-        previewCtx.font = '600 28px sans-serif';
-        previewCtx.fillText('Preview Image', 72, 100);
-        previewCtx.font = '400 20px sans-serif';
-        previewCtx.fillText('這裡模擬實際圖片上套用浮水印後的顯示效果', 72, 138);
+        if (previewBgImage && previewBgImage.complete && previewBgImage.naturalWidth) {
+            previewCtx.drawImage(previewBgImage, 0, 0, previewCanvas.width, previewCanvas.height);
+        } else {
+            var gradient = previewCtx.createLinearGradient(0, 0, previewCanvas.width, previewCanvas.height);
+            gradient.addColorStop(0, '#c9d6df');
+            gradient.addColorStop(1, '#52616b');
+            previewCtx.fillStyle = gradient;
+            previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+            previewCtx.fillStyle = 'rgba(255,255,255,0.08)';
+            previewCtx.fillRect(48, 48, previewCanvas.width - 96, previewCanvas.height - 96);
+            previewCtx.fillStyle = 'rgba(255,255,255,0.5)';
+            previewCtx.font = '600 28px sans-serif';
+            previewCtx.fillText('Preview Image', 72, 100);
+            previewCtx.font = '400 20px sans-serif';
+            previewCtx.fillText('示意圖載入中…', 72, 138);
+        }
     }
 
     function renderPreview() {
@@ -260,6 +285,7 @@
     }
 
     syncRangeLabels();
-    renderPreview();
+    // Load background sample image then render preview
+    loadPreviewBg(renderPreview);
 
 })(jQuery);
