@@ -30,13 +30,21 @@ class WPIWM_Admin {
     }
 
     public function enqueue( $hook ) {
-        // Only load wpiwm-admin.js on our settings page AND the media library (upload.php)
+        // Load JS on: settings page, media library list, single attachment edit
         $allowed_hooks = array(
             'media_page_wp-image-watermark',
             'upload.php',
+            'post.php',          // edit-attachment screen uses post.php
         );
         if ( ! in_array( $hook, $allowed_hooks, true ) ) {
             return;
+        }
+        // For post.php, only load on attachment edit screens
+        if ( $hook === 'post.php' ) {
+            $screen = get_current_screen();
+            if ( ! $screen || $screen->id !== 'attachment' ) {
+                return;
+            }
         }
 
         wp_enqueue_script(
@@ -75,7 +83,7 @@ class WPIWM_Admin {
         }
         $post = $_POST;
         $data = array(
-            'auto_watermark'          => ! empty( $post['auto_watermark'] ),
+            'auto_watermark'          => ! empty( $post['auto_watermark'] ) ? 1 : 0,
             'watermark_type'          => in_array( $post['watermark_type'] ?? '', array( 'image', 'text' ), true ) ? $post['watermark_type'] : 'text',
             'watermark_image_id'      => (int) ( $post['watermark_image_id'] ?? 0 ),
             'watermark_image_opacity' => max( 0, min( 100, (int) ( $post['watermark_image_opacity'] ?? 80 ) ) ),
@@ -88,8 +96,8 @@ class WPIWM_Admin {
             'watermark_offset_x'      => max( 0, (int) ( $post['watermark_offset_x'] ?? 10 ) ),
             'watermark_offset_y'      => max( 0, (int) ( $post['watermark_offset_y'] ?? 10 ) ),
             'watermark_scale'         => max( 1, min( 100, (int) ( $post['watermark_scale'] ?? 20 ) ) ),
-            'protect_right_click'     => ! empty( $post['protect_right_click'] ),
-            'protect_devtools'        => ! empty( $post['protect_devtools'] ),
+            'protect_right_click'     => ! empty( $post['protect_right_click'] ) ? 1 : 0,
+            'protect_devtools'        => ! empty( $post['protect_devtools'] ) ? 1 : 0,
         );
         WPIWM_Settings::update( $data );
         wp_redirect( admin_url( 'upload.php?page=wp-image-watermark&saved=1' ) );
