@@ -30,6 +30,15 @@ class WPIWM_Admin {
     }
 
     public function enqueue( $hook ) {
+        // Only load wpiwm-admin.js on our settings page AND the media library (upload.php)
+        $allowed_hooks = array(
+            'media_page_wp-image-watermark',
+            'upload.php',
+        );
+        if ( ! in_array( $hook, $allowed_hooks, true ) ) {
+            return;
+        }
+
         wp_enqueue_script(
             'wpiwm-admin',
             WPIWM_PLUGIN_URL . 'assets/js/admin.js',
@@ -40,21 +49,23 @@ class WPIWM_Admin {
         wp_localize_script( 'wpiwm-admin', 'WPIWM_Admin', array(
             'ajax_url'            => admin_url( 'admin-ajax.php' ),
             'nonce'               => wp_create_nonce( 'wpiwm_nonce' ),
-            'confirm_batch'       => __( '確定要批次套用浮水印到所有已選取的圖片嗎？此操作無法自動還原，請確保本機有原始備份。', 'wp-image-watermark' ),
+            'confirm_batch'       => __( '確定要批次套用浮水印到所有圖片嗎？此操作無法自動還原，請確保本機有原始備份。', 'wp-image-watermark' ),
             'confirm_remove'      => __( '確定要清除這張圖片的浮水印標記嗎？（圖片本身不會變更）', 'wp-image-watermark' ),
             'applying'            => __( '套用中…', 'wp-image-watermark' ),
             'removing'            => __( '清除中…', 'wp-image-watermark' ),
-            'preview_sample_text' => __( '預覽文字', 'wp-image-watermark' ),
+            'preview_sample_text' => __( '浮水印預覽', 'wp-image-watermark' ),
         ) );
 
-        if ( $hook !== 'media_page_wp-image-watermark' ) return;
-        wp_enqueue_style(
-            'wpiwm-admin',
-            WPIWM_PLUGIN_URL . 'assets/css/admin.css',
-            array(),
-            WPIWM_VERSION
-        );
-        wp_enqueue_media();
+        // Settings page only: load CSS and media uploader
+        if ( $hook === 'media_page_wp-image-watermark' ) {
+            wp_enqueue_style(
+                'wpiwm-admin',
+                WPIWM_PLUGIN_URL . 'assets/css/admin.css',
+                array(),
+                WPIWM_VERSION
+            );
+            wp_enqueue_media();
+        }
     }
 
     public function save_settings() {
@@ -113,11 +124,12 @@ class WPIWM_Admin {
                 <?php wp_nonce_field( 'wpiwm_save_settings' ); ?>
                 <input type="hidden" name="action" value="wpiwm_save_settings">
 
+                <!-- Auto watermark toggle -->
                 <div class="wpiwm-card wpiwm-toggle-card <?php echo $opts['auto_watermark'] ? 'is-active' : ''; ?>" id="wpiwm-auto-card">
                     <div class="wpiwm-toggle-header">
                         <div>
                             <h2><?php esc_html_e( '自動浮水印', 'wp-image-watermark' ); ?></h2>
-                            <p class="description"><?php esc_html_e( '上傳新圖片時自動套用浮水印。可隨時切換關閉，對已上傳的圖片不影響。', 'wp-image-watermark' ); ?></p>
+                            <p class="description"><?php esc_html_e( '上傳新圖片時自動套用浮水印。', 'wp-image-watermark' ); ?></p>
                         </div>
                         <label class="wpiwm-switch">
                             <input type="checkbox" name="auto_watermark" value="1" id="auto_watermark" <?php checked( $opts['auto_watermark'] ); ?>>
@@ -126,6 +138,7 @@ class WPIWM_Admin {
                     </div>
                 </div>
 
+                <!-- Watermark type -->
                 <div class="wpiwm-card">
                     <h2><?php esc_html_e( '浮水印類型', 'wp-image-watermark' ); ?></h2>
                     <div class="wpiwm-type-tabs">
@@ -141,6 +154,7 @@ class WPIWM_Admin {
                         </label>
                     </div>
 
+                    <!-- Preview -->
                     <div class="wpiwm-preview-box">
                         <div class="wpiwm-preview-header">
                             <h3><?php esc_html_e( '效果預覽', 'wp-image-watermark' ); ?></h3>
@@ -151,6 +165,7 @@ class WPIWM_Admin {
                         </div>
                     </div>
 
+                    <!-- Text settings -->
                     <div id="wpiwm-text-settings" class="wpiwm-type-settings" <?php echo $opts['watermark_type'] !== 'text' ? 'style="display:none"' : ''; ?>>
                         <table class="form-table">
                             <tr>
@@ -175,6 +190,7 @@ class WPIWM_Admin {
                         </table>
                     </div>
 
+                    <!-- Image settings -->
                     <div id="wpiwm-image-settings" class="wpiwm-type-settings" <?php echo $opts['watermark_type'] !== 'image' ? 'style="display:none"' : ''; ?>>
                         <table class="form-table">
                             <tr>
@@ -208,6 +224,7 @@ class WPIWM_Admin {
                     </div>
                 </div>
 
+                <!-- Position -->
                 <div class="wpiwm-card">
                     <h2><?php esc_html_e( '浮水印位置', 'wp-image-watermark' ); ?></h2>
                     <div class="wpiwm-position-grid">
@@ -230,9 +247,9 @@ class WPIWM_Admin {
                     </table>
                 </div>
 
+                <!-- Protection -->
                 <div class="wpiwm-card">
                     <h2><?php esc_html_e( '影像保護', 'wp-image-watermark' ); ?></h2>
-                    <p class="description" style="margin-bottom:12px;"><?php esc_html_e( '注意：前端保護為輔助措施，無法 100% 阻止有技術能力的使用者。', 'wp-image-watermark' ); ?></p>
                     <table class="form-table">
                         <tr>
                             <th><?php esc_html_e( '停用右鍵選單', 'wp-image-watermark' ); ?></th>
@@ -250,15 +267,16 @@ class WPIWM_Admin {
                 </p>
             </form>
 
+            <!-- Batch tools -->
             <div class="wpiwm-card">
                 <h2><?php esc_html_e( '批次工具', 'wp-image-watermark' ); ?></h2>
-                <p class="description"><?php esc_html_e( '對媒體庫中現有圖片進行批次操作。請先在上方儲存設定後再執行。', 'wp-image-watermark' ); ?></p>
+                <p class="description"><?php esc_html_e( '對媒體庫中現有圖片進行批次操作。請先儲存設定後再執行。', 'wp-image-watermark' ); ?></p>
                 <div class="wpiwm-notice-box" style="background:#fff8e1;border-left:4px solid #f0ad4e;padding:10px 14px;border-radius:4px;margin:12px 0;font-size:13px;">
-                    ⚠️ <?php esc_html_e( '注意：套用後圖片將被直接覆寫，無伺服器端備份。請確保本機已保留原始照片再執行批次套用。', 'wp-image-watermark' ); ?>
+                    ⚠️ <?php esc_html_e( '套用後圖片將被直接覆寫，請確保備份原始檔案。', 'wp-image-watermark' ); ?>
                 </div>
                 <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;">
-                    <button type="button" class="button button-primary" id="wpiwm-batch-all-apply"><?php esc_html_e( '批次套用浮水印（全部圖片）', 'wp-image-watermark' ); ?></button>
-                    <button type="button" class="button" id="wpiwm-batch-all-remove" style="color:#c0392b;border-color:#c0392b;"><?php esc_html_e( '批次清除浮水印標記', 'wp-image-watermark' ); ?></button>
+                    <button type="button" class="button button-primary" id="wpiwm-batch-all-apply"><?php esc_html_e( '批次套用浮水印（全部）', 'wp-image-watermark' ); ?></button>
+                    <button type="button" class="button" id="wpiwm-batch-all-remove" style="color:#c0392b;border-color:#c0392b;"><?php esc_html_e( '批次清除標記', 'wp-image-watermark' ); ?></button>
                 </div>
                 <div id="wpiwm-batch-progress" style="margin-top:12px;display:none;">
                     <div class="wpiwm-progress-bar"><div class="wpiwm-progress-fill" id="wpiwm-progress-fill"></div></div>
